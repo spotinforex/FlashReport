@@ -1,0 +1,11 @@
+[project]
+name = "flashreport"
+version = "0.1.0"
+description = " A First Hand News Summarzer"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "lxml>=6.0.2",
+    "playwright>=1.57.0",
+]
