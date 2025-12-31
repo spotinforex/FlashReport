@@ -1,115 +1,164 @@
+import logging,sys
+logger = logging.getLogger("runner")
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+
 from bs4 import BeautifulSoup
-import json
 from datetime import datetime
 from pathlib import Path
+import time
 
 def parse_punch_news(html_content):
     """
     Parse Punch News website content and extract articles
+    Args:
+        html_content: Raw Html Data 
+    Returns:
+        parsed_data: Parsed Data in Json Format 
     """
-    soup = BeautifulSoup(html_content, 'lxml')
-    
-    parsed_data = {
-        'source': 'Punch Nigeria',
-        'source_url': 'https://punchng.com',
-        'scraped_at': datetime.now().isoformat(),
-        'articles': []
-    }
-    
-    # Parse Latest News section
-    latest_news_section = soup.find('div', class_='just-in-timeline')
-    if latest_news_section:
-        for item in latest_news_section.find_all('li', class_='new-item'):
+    try:
+        start = time.time()
+        soup = BeautifulSoup(html_content, 'lxml')
+        
+        parsed_data = {
+            'source': 'Punch Nigeria',
+            'source_url': 'https://punchng.com',
+            'scraped_at': datetime.now().isoformat(),
+            'articles': []
+        }
+        
+        # Parse Latest News section
+        logging.info("Parsing Punch Newspaper Latest News Section In Progress")
+        latest_news_section = soup.find('div', class_='just-in-timeline')
+        if latest_news_section:
+            for item in latest_news_section.find_all('li', class_='new-item'):
+                article = {}
+                
+                # Extract title
+                logging.info("Parsing Punch Newspaper Latest News Section, Title Extraction In Progress")
+                title_elem = item.find('h3', class_='entry-title')
+                if title_elem and title_elem.find('a'):
+                    article['title'] = title_elem.find('a').get_text(strip=True)
+                    article['url'] = title_elem.find('a').get('href', '')
+                
+                # Extract time
+                logging.info("Parsing Punch Newspaper Latest News Section, Time Extraction In Progress")
+                time_elem = item.find('div', class_='meta-time')
+                if time_elem:
+                    article['time_posted'] = time_elem.get_text(strip=True)
+                
+                if article.get('title'):
+                    article['category'] = 'Latest News'
+                    parsed_data['articles'].append(article)
+        logging.info("Parsing Punch Newspaper Latest News Section Completed")
+        
+        # Parse Featured Article
+        logging.info("Parsing Punch Newspaper Featured Article Section In Progress")
+        featured = soup.find('div', class_='feature-article')
+        if featured:
             article = {}
             
-            # Extract title
-            title_elem = item.find('h3', class_='entry-title')
+            title_elem = featured.find('h2', class_='post-title')
             if title_elem and title_elem.find('a'):
                 article['title'] = title_elem.find('a').get_text(strip=True)
                 article['url'] = title_elem.find('a').get('href', '')
             
-            # Extract time
-            time_elem = item.find('div', class_='meta-time')
-            if time_elem:
-                article['time_posted'] = time_elem.get_text(strip=True)
-            
-            if article.get('title'):
-                article['category'] = 'Latest News'
-                parsed_data['articles'].append(article)
-    
-    # Parse Featured Article
-    featured = soup.find('div', class_='feature-article')
-    if featured:
-        article = {}
-        
-        title_elem = featured.find('h2', class_='post-title')
-        if title_elem and title_elem.find('a'):
-            article['title'] = title_elem.find('a').get_text(strip=True)
-            article['url'] = title_elem.find('a').get('href', '')
-        
-        img_elem = featured.find('img')
-        if img_elem:
-            article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-        
-        if article.get('title'):
-            article['category'] = 'Featured'
-            article['is_featured'] = True
-            parsed_data['articles'].append(article)
-    
-    # Parse Top News section
-    top_news_section = soup.find('div', class_='top-news')
-    if top_news_section:
-        for item in top_news_section.find_all('article'):
-            article = {}
-            
-            title_elem = item.find('h2', class_='post-title')
-            if title_elem and title_elem.find('a'):
-                article['title'] = title_elem.find('a').get_text(strip=True)
-                article['url'] = title_elem.find('a').get('href', '')
-            
-            img_elem = item.find('img')
-            if img_elem:
-                article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-            
-            category_elem = item.find('span', class_='post-category')
-            if category_elem and category_elem.find('a'):
-                article['category'] = category_elem.find('a').get_text(strip=True)
-            
-            if article.get('title'):
-                parsed_data['articles'].append(article)
-    
-    # Parse Metro Plus section
-    metro_section = soup.find('div', class_='col-lg-12 nine-post')
-    if metro_section:
-        header = metro_section.find('h2', class_='header-title')
-        section_name = header.find('a').get_text(strip=True) if header and header.find('a') else 'Metro Plus'
-        
-        # Parse main article
-        main_article = metro_section.find('div', class_='news-widget-1')
-        if main_article:
-            article = {}
-            
-            title_elem = main_article.find('h2', class_='post-title')
-            if title_elem and title_elem.find('a'):
-                article['title'] = title_elem.find('a').get_text(strip=True)
-                article['url'] = title_elem.find('a').get('href', '')
-            
-            excerpt_elem = main_article.find('p', class_='post-excerpt')
-            if excerpt_elem:
-                article['excerpt'] = excerpt_elem.get_text(strip=True)
-            
-            img_elem = main_article.find('img')
+            img_elem = featured.find('img')
             if img_elem:
                 article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
             
             if article.get('title'):
-                article['category'] = section_name
+                article['category'] = 'Featured'
+                article['is_featured'] = True
                 parsed_data['articles'].append(article)
+        logging.info("Parsing Punch Newspaper Featured Article Section Completed")
         
-        # Parse side articles
-        side_articles = metro_section.find_all('div', class_='news-widget-2')
-        for widget in side_articles:
-            for item in widget.find_all('article'):
+        # Parse Top News section
+        logging.info("Parsing Punch Newspaper Top News Section In Progress")
+        top_news_section = soup.find('div', class_='top-news')
+        if top_news_section:
+            for item in top_news_section.find_all('article'):
+                article = {}
+                
+                title_elem = item.find('h2', class_='post-title')
+                if title_elem and title_elem.find('a'):
+                    article['title'] = title_elem.find('a').get_text(strip=True)
+                    article['url'] = title_elem.find('a').get('href', '')
+                
+                img_elem = item.find('img')
+                if img_elem:
+                    article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                
+                category_elem = item.find('span', class_='post-category')
+                if category_elem and category_elem.find('a'):
+                    article['category'] = category_elem.find('a').get_text(strip=True)
+                
+                if article.get('title'):
+                    parsed_data['articles'].append(article)
+        logging.info("Parsing Punch Newspaper Top News Section Completed")
+        
+        # Parse Metro Plus section
+        logging.info("Parsing Punch Newspaper Metro Plus Section In Progress")
+        metro_section = soup.find('div', class_='col-lg-12 nine-post')
+        if metro_section:
+            header = metro_section.find('h2', class_='header-title')
+            section_name = header.find('a').get_text(strip=True) if header and header.find('a') else 'Metro Plus'
+            
+            # Parse main article
+            logging.info("Parsing Punch Newspaper Metro Plus Section, Main article in Progress")
+            main_article = metro_section.find('div', class_='news-widget-1')
+            if main_article:
+                article = {}
+                
+                title_elem = main_article.find('h2', class_='post-title')
+                if title_elem and title_elem.find('a'):
+                    article['title'] = title_elem.find('a').get_text(strip=True)
+                    article['url'] = title_elem.find('a').get('href', '')
+                
+                excerpt_elem = main_article.find('p', class_='post-excerpt')
+                if excerpt_elem:
+                    article['excerpt'] = excerpt_elem.get_text(strip=True)
+                
+                img_elem = main_article.find('img')
+                if img_elem:
+                    article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                
+                if article.get('title'):
+                    article['category'] = section_name
+                    parsed_data['articles'].append(article)
+            
+            # Parse side articles
+            logging.info("Parsing Punch Newspaper Metro Plus Section Side Articles In Progress")
+            side_articles = metro_section.find_all('div', class_='news-widget-2')
+            for widget in side_articles:
+                for item in widget.find_all('article'):
+                    article = {}
+                    
+                    title_elem = item.find('h2', class_='post-title')
+                    if title_elem and title_elem.find('a'):
+                        article['title'] = title_elem.find('a').get_text(strip=True)
+                        article['url'] = title_elem.find('a').get('href', '')
+                    
+                    img_elem = item.find('img')
+                    if img_elem:
+                        article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                    
+                    if article.get('title'):
+                        article['category'] = section_name
+                        parsed_data['articles'].append(article)
+        logging.info("Parsing Punch Newspaper Metro Plus Section Completed")
+        
+        # Parse other sections (Business, Politics, Sports, etc.)
+        logging.info("Parsing Punch Newspaper Other Sections In Progress")
+        sections = soup.find_all('div', class_='news-section-three')
+        for section in sections:
+            header = section.find('h2', class_='header-title')
+            section_name = header.find('a').get_text(strip=True) if header and header.find('a') else 'General'
+            
+            for item in section.find_all('article'):
                 article = {}
                 
                 title_elem = item.find('h2', class_='post-title')
@@ -124,68 +173,25 @@ def parse_punch_news(html_content):
                 if article.get('title'):
                     article['category'] = section_name
                     parsed_data['articles'].append(article)
-    
-    # Parse other sections (Business, Politics, Sports, etc.)
-    sections = soup.find_all('div', class_='news-section-three')
-    for section in sections:
-        header = section.find('h2', class_='header-title')
-        section_name = header.find('a').get_text(strip=True) if header and header.find('a') else 'General'
+        logging.info("Parsing Punch Newspaper Other Sections Completed")
         
-        for item in section.find_all('article'):
-            article = {}
-            
-            title_elem = item.find('h2', class_='post-title')
-            if title_elem and title_elem.find('a'):
-                article['title'] = title_elem.find('a').get_text(strip=True)
-                article['url'] = title_elem.find('a').get('href', '')
-            
-            img_elem = item.find('img')
-            if img_elem:
-                article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-            
-            if article.get('title'):
-                article['category'] = section_name
-                parsed_data['articles'].append(article)
-    
-    # Remove duplicates based on title
-    seen_titles = set()
-    unique_articles = []
-    for article in parsed_data['articles']:
-        if article['title'] not in seen_titles:
-            seen_titles.add(article['title'])
-            unique_articles.append(article)
-    
-    parsed_data['articles'] = unique_articles
-    parsed_data['total_articles'] = len(unique_articles)
-    
-    return parsed_data
-
-
-def save_to_json(data, filename='punch_news_parsed.json'):
-    """Save parsed data to JSON file"""
-    with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    print(f"Data saved to {filename}")
-
-
-'''# Example usage
-if __name__ == "__main__":
-    # Read the HTML content from file or string
-    path = Path.cwd()
-    print(path)
-    with open(f'{path}/punch.txt', 'r', encoding='utf-8') as f:
-        html_content = f.read()
-    
-    # Parse the content
-    parsed_data = parse_punch_news(html_content)
-    
-    # Print summary
-    print(f"Total articles parsed: {parsed_data['total_articles']}")
-    print(f"\nSample articles:")
-    for article in parsed_data['articles'][:5]:
-        print(f"\nTitle: {article['title']}")
-        print(f"Category: {article.get('category', 'N/A')}")
-        print(f"URL: {article.get('url', 'N/A')}")
-    
-    # Save to JSON
-    save_to_json(parsed_data)'''
+        # Remove duplicates based on title
+        logging.info("Removing Duplicates In Progress")
+        seen_titles = set()
+        unique_articles = []
+        for article in parsed_data['articles']:
+            if article['title'] not in seen_titles:
+                seen_titles.add(article['title'])
+                unique_articles.append(article)
+        
+        parsed_data['articles'] = unique_articles
+        parsed_data['total_articles'] = len(unique_articles)
+        
+        end = time.time()
+        
+        logging.info(f"Parsing Completed. Time Taken: {end - start} seconds.")
+        
+        return parsed_data
+        
+    except Exception as e:
+        logging.error(f"An Error Occurred When Parsing Punch Newspaper Data: {e}")
