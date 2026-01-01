@@ -189,9 +189,10 @@ def parse_punch_news(html_content):
         
         end = time.time()
         
-        logging.info(f"Parsing Completed. Time Taken: {end - start} seconds.")
+        logging.info(f"Parsing Completed. Total Articles: {len(unique_articles)}. Time Taken: {end - start:.2f} seconds.")
         
         return parsed_data
         
     except Exception as e:
         logging.error(f"An Error Occurred When Parsing Punch Newspaper Data: {e}")
+        return None
