@@ -12,6 +12,7 @@ from adapter.punch import parse_punch_news
 from adapter.channeltv import parse_channel_news
 from adapter.vanguard import parse_vanguard_news
 from adapter.premuimtimes import parse_premuimtimes_news
+from adapter.businessday import parse_businessday_news
 import time
 
 async def main():
@@ -27,10 +28,11 @@ async def main():
                 "https://www.channelstv.com/",
                 "https://www.vanguardngr.com/",
                 "https://www.premiumtimesng.com",
+                "https://businessday.ng/",
             ]
 
             for index, url in enumerate(data_url):
-                await page.goto(url, wait_until="domcontentloaded")
+                await page.goto(url, wait_until="domcontentloaded", timeout = 60000)
                 content = await page.content()
 
                 if index == 0:
@@ -41,7 +43,9 @@ async def main():
                     parsed = parse_vanguard_news(content)
                 elif index == 3:
                     parsed = parse_premuimtimes_news(content)
-
+                elif index == 4:
+                    parsed = parse_businessday_news(content)
+    
             await browser.close()
 
         end = time.time()
