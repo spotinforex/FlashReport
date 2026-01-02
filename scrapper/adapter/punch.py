@@ -38,14 +38,12 @@ def parse_punch_news(html_content):
                 article = {}
                 
                 # Extract title
-                logging.info("Parsing Punch Newspaper Latest News Section, Title Extraction In Progress")
                 title_elem = item.find('h3', class_='entry-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
                     article['url'] = title_elem.find('a').get('href', '')
                 
                 # Extract time
-                logging.info("Parsing Punch Newspaper Latest News Section, Time Extraction In Progress")
                 time_elem = item.find('div', class_='meta-time')
                 if time_elem:
                     article['time_posted'] = time_elem.get_text(strip=True)
