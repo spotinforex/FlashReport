@@ -15,7 +15,7 @@ from adapter.premuimtimes import parse_premuimtimes_news
 from adapter.businessday import parse_businessday_news
 from adapter.saharareporters import parse_saharareporters_news
 from adapter.guardian import parse_guardian_news
-#from adapter.arise import parse_arise_news
+from adapter.arise import parse_arise_news
 import time
 
 async def main():
@@ -56,10 +56,7 @@ async def main():
                 elif index == 6:
                     parsed = parse_guardian_news(content)
                 elif index == 7:
-                    #parsed = parse_arise_news(content)
-                    with open("arise.txt", "w") as f:
-                        f.write(content)
-                    
+                    parsed = parse_arise_news(content)
                     
     
             await browser.close()
