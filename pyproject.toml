@@ -1,11 +1,14 @@
 [project]
 name = "flashreport"
 version = "0.1.0"
-description = " A First Hand News Summarzer"
+description = " An early time News indicator"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.14.3",
     "lxml>=6.0.2",
     "playwright>=1.57.0",
+    "psycopg2-binary>=2.9.11",
+    "python-dotenv>=1.2.1",
+    "supabase>=2.27.0",
 ]
