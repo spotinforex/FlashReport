@@ -14,7 +14,8 @@ from adapter.vanguard import parse_vanguard_news
 from adapter.premuimtimes import parse_premuimtimes_news
 from adapter.businessday import parse_businessday_news
 from adapter.saharareporters import parse_saharareporters_news
-#from adapter.guardian import parse_guardian_news
+from adapter.guardian import parse_guardian_news
+#from adapter.arise import parse_arise_news
 import time
 
 async def main():
@@ -33,6 +34,7 @@ async def main():
                 "https://businessday.ng/",
                 "https://saharareporters.com/news",
                 "https://guardian.ng/",
+                "https://www.arise.tv/",
             ]
 
             for index, url in enumerate(data_url):
@@ -52,9 +54,12 @@ async def main():
                 elif index == 5:
                     parsed = parse_saharareporters_news(content)
                 elif index == 6:
-                    #parsed = parse_guardian_news(content)
-                    with open("guardian.txt", "w") as f:
+                    parsed = parse_guardian_news(content)
+                elif index == 7:
+                    #parsed = parse_arise_news(content)
+                    with open("arise.txt", "w") as f:
                         f.write(content)
+                    
                     
     
             await browser.close()
