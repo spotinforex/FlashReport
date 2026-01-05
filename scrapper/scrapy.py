@@ -16,6 +16,7 @@ from datetime import datetime
 
 from database import Database
 from preprocessor import preprocessor
+from telegram import scrape_recent_messages
 
 logger = logging.getLogger("runner")
 logging.basicConfig(
@@ -90,6 +91,8 @@ async def main():
 
             await browser.close()
 
+        await scrape_recent_messages()
+
         end = time.time()
         logging.info(f"Time Taken: {end - start:.2f} seconds")
 
@@ -99,4 +102,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
