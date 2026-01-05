@@ -38,9 +38,7 @@ def parse_guardian_news(html_content):
             link_elem = breaking_news.find('a')
             if link_elem:
                 article['title'] = link_elem.get_text(strip=True)
-                article['url'] = link_elem.get('href', '')
-                article['category'] = 'Breaking News'
-                article['is_breaking'] = True
+                article['news_url'] = link_elem.get('href', '')
                 parsed_data['articles'].append(article)
         logging.info("Parsing Guardian Breaking News Section Completed")
         
@@ -56,16 +54,14 @@ def parse_guardian_news(html_content):
                 title_elem = top_article.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = top_article.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('src', '')
-                
-                if article.get('title'):
-                    article['category'] = 'Top News'
-                    article['is_featured'] = True
                     parsed_data['articles'].append(article)
+                if not img_elem:
+                    article['image_url'] = None
             
             # Side articles in top section
             side_widgets = top_section.find_all('article', class_='top-section-news-widget-one')
@@ -75,14 +71,15 @@ def parse_guardian_news(html_content):
                 title_elem = widget.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = widget.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('src') or img_elem.get('data-src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 if article.get('title'):
-                    article['category'] = 'Top News'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Guardian Top Section Completed")
         
@@ -96,19 +93,17 @@ def parse_guardian_news(html_content):
                 title_elem = item.find('h2')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
+                    article['image_url'] = None
                 
                 # Extract category and time
                 meta_elem = item.find('div', class_='post-meta')
                 if meta_elem:
                     spans = meta_elem.find_all('span')
                     if len(spans) >= 2:
-                        article['category'] = spans[0].get_text(strip=True)
-                        article['time_posted'] = spans[1].get_text(strip=True)
+                        article['published_at'] = spans[1].get_text(strip=True)
                 
                 if article.get('title'):
-                    if 'category' not in article:
-                        article['category'] = 'Latest News'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Guardian Latest News Section Completed")
         
@@ -128,18 +123,16 @@ def parse_guardian_news(html_content):
                     title_elem = item.find('h2', class_='post-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
-                    excerpt_elem = item.find('p', class_='post-excerpt')
-                    if excerpt_elem:
-                        article['excerpt'] = excerpt_elem.get_text(strip=True)
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     if article.get('title'):
-                        article['category'] = section_name
                         parsed_data['articles'].append(article)
                 
                 # Parse news-type-two articles (medium size articles)
@@ -149,18 +142,19 @@ def parse_guardian_news(html_content):
                     title_elem = item.find('h2', class_='post-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     date_elem = item.find('span', class_='post-date')
                     if date_elem:
-                        article['published_date'] = date_elem.get_text(strip=True)
+                        article['published_at'] = date_elem.get_text(strip=True)
                     
                     if article.get('title'):
-                        article['category'] = section_name
                         parsed_data['articles'].append(article)
                 
                 # Parse news-type-three articles (small list articles)
@@ -170,14 +164,15 @@ def parse_guardian_news(html_content):
                     title_elem = item.find('h2', class_='post-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
+                        
+                        article['image_url'] = None
                     
                     date_elem = item.find('span', class_='post-date')
                     if date_elem:
-                        article['published_date'] = date_elem.get_text(strip=True)
+                        article['published_at'] = date_elem.get_text(strip=True)
                     
                     if article.get('title'):
-                        article['category'] = section_name
                         parsed_data['articles'].append(article)
         logging.info("Parsing Guardian News Group One Sections Completed")
         
@@ -197,18 +192,19 @@ def parse_guardian_news(html_content):
                     title_elem = item.find('h2', class_='post-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     meta_elem = item.find('p', class_='post-meta')
                     if meta_elem:
-                        article['published_date'] = meta_elem.get_text(strip=True)
+                        article['published_at'] = meta_elem.get_text(strip=True)
                     
                     if article.get('title'):
-                        article['category'] = section_name
                         parsed_data['articles'].append(article)
         logging.info("Parsing Guardian News Group Two Sections Completed")
         
@@ -228,18 +224,16 @@ def parse_guardian_news(html_content):
                     title_elem = item.find('h2', class_='post-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
-                    excerpt_elem = item.find('p', class_='post-excerpt')
-                    if excerpt_elem:
-                        article['excerpt'] = excerpt_elem.get_text(strip=True)
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     if article.get('title'):
-                        article['category'] = section_name
                         parsed_data['articles'].append(article)
                 
                 # Parse news-type-two in this section
@@ -249,18 +243,19 @@ def parse_guardian_news(html_content):
                     title_elem = item.find('h2', class_='post-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     date_elem = item.find('span', class_='post-date')
                     if date_elem:
-                        article['published_date'] = date_elem.get_text(strip=True)
+                        article['published_at'] = date_elem.get_text(strip=True)
                     
                     if article.get('title'):
-                        article['category'] = section_name
                         parsed_data['articles'].append(article)
         logging.info("Parsing Guardian News Group Three Sections Completed")
         
@@ -274,18 +269,15 @@ def parse_guardian_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                excerpt_elem = item.find('p', class_='post-excerpt')
-                if excerpt_elem:
-                    article['excerpt'] = excerpt_elem.get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 if article.get('title'):
-                    article['category'] = 'Guardian Life'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Guardian Life Section Completed")
         
@@ -299,18 +291,19 @@ def parse_guardian_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 date_elem = item.find('p', class_='post-date')
                 if date_elem:
-                    article['published_date'] = date_elem.get_text(strip=True)
+                    article['published_at'] = date_elem.get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = 'Guardian Woman'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Guardian Woman Section Completed")
         
@@ -324,22 +317,19 @@ def parse_guardian_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                excerpt_elem = item.find('p', class_='post-excerpt')
-                if excerpt_elem:
-                    article['excerpt'] = excerpt_elem.get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 date_elem = item.find('span', class_='post-date')
                 if date_elem:
-                    article['published_date'] = date_elem.get_text(strip=True)
+                    article['published_at'] = date_elem.get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = 'Guardian Angels'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Guardian Angels Section Completed")
         
@@ -353,19 +343,19 @@ def parse_guardian_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 date_elem = item.find('p', class_='post-date')
                 if date_elem:
-                    article['published_date'] = date_elem.get_text(strip=True)
+                    article['published_at'] = date_elem.get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = 'Guardian TV'
-                    article['is_video'] = True
                     parsed_data['articles'].append(article)
         logging.info("Parsing Guardian TV Section Completed")
         
@@ -379,22 +369,19 @@ def parse_guardian_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                excerpt_elem = item.find('p', class_='post-excerpt')
-                if excerpt_elem:
-                    article['excerpt'] = excerpt_elem.get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 date_elem = item.find('span', class_='post-date')
                 if date_elem:
-                    article['published_date'] = date_elem.get_text(strip=True)
+                    article['published_at'] = date_elem.get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = 'Marie Claire'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Marie Claire Section Completed")
         
@@ -419,3 +406,4 @@ def parse_guardian_news(html_content):
     except Exception as e:
         logging.error(f"An Error Occurred When Parsing Guardian Nigeria Data: {e}")
         return None
+        

@@ -1,5 +1,6 @@
 import logging, os, sys
 import psycopg2
+from psycopg2.extras import execute_batch
 from dotenv import load_dotenv
 
 logger = logging.getLogger("runner")
@@ -77,30 +78,64 @@ class Database:
             - a list of dictionaries: [{...}, {...}]
         """
         try:
+            # Normalize input
             if isinstance(data, dict):
-                data = [data]  # wrap single dict into a list
+                data = [data]
 
             if not data:
-                logging.warning("No data provided to insert")
+                logger.warning("No data provided for insert")
                 return False
 
-            columns = ', '.join(data[0].keys())
-            placeholders = ', '.join(['%s'] * len(data[0]))
-            query = f'INSERT INTO "{table}" ({columns}) VALUES ({placeholders})'
+            # Freeze column order from first row
+            columns_list = list(data[0].keys())
+            columns = ", ".join(f'"{c}"' for c in columns_list)
+            placeholders = ", ".join(["%s"] * len(columns_list))
 
-            # Insert each row
-            for row in data:
-                values = tuple(row.values())
-                self.cursor.execute(query, values)
+            query = f"""
+                INSERT INTO "{table}" ({columns})
+                VALUES ({placeholders})
+            """
 
+            values_list = []
+
+            for i, row in enumerate(data, start=1):
+                # Enforce schema consistency
+                if row.keys() != data[0].keys():
+                    raise ValueError(
+                        f"Row {i} keys mismatch.\n"
+                        f"Expected: {data[0].keys()}\n"
+                        f"Got: {row.keys()}"
+                    )
+
+                values_list.append(
+                    tuple(row[col] for col in columns_list)
+                )
+
+            # Batch insert (fast & safe)
+            execute_batch(self.cursor, query, values_list, page_size=100)
             self.conn.commit()
-            logging.info(f"Inserted {len(data)} row(s) into {table}")
+
+            logger.info(f"Inserted {len(values_list)} row(s) into {table}")
             return True
 
         except Exception as e:
-            logging.error(f"Error inserting into {table}: {e}")
             self.conn.rollback()
+            logger.error(f"Error inserting into {table}: {e}", exc_info=True)
             return False
+            
+    def update(self, table, id, timestamp):
+        """Updates Timestamp For Sources safely"""
+        try:
+            logging.info("Updating Source Table Scrape Date In Progress")
+
+            query = f"UPDATE {table} SET last_scraped = %s WHERE id = %s"
+            self.cursor.execute(query, (timestamp, id))
+
+            self.conn.commit()
+            logging.info("Updated Table Successfully")
+
+        except Exception as e:
+            logging.error(f"An Error Occurred While Updating Table: {e}")
 
     def close(self):
         """
@@ -112,9 +147,9 @@ class Database:
             self.conn.close()
         logging.info("Database connection closed")
 
+        
+        
+    
 
-def preprocessor(data):
-    """ 
-    Preproceses and Clean data for the Database
-    """
-    pass
+
+

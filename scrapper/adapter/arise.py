@@ -41,20 +41,16 @@ def parse_arise_news(html_content):
             title_elem = featured.find('h3')
             if title_elem and title_elem.find('a'):
                 article['title'] = title_elem.find('a').get_text(strip=True)
-                article['url'] = title_elem.find('a').get('href', '')
+                article['news_url'] = title_elem.find('a').get('href', '')
             
             img_elem = featured.find('img', class_='wp-post-image')
             if img_elem:
                 article['image_url'] = img_elem.get('src', '')
             
-            excerpt_elem = featured.find('div', class_='excerpt')
-            if excerpt_elem:
-                article['excerpt'] = excerpt_elem.get_text(strip=True)
+            if not img_elem:
+                article['image_url'] = None
             
-            if article.get('title'):
-                article['category'] = 'Featured'
-                article['is_featured'] = True
-                parsed_data['articles'].append(article)
+            parsed_data['articles'].append(article)
         logging.info("Parsing Arise TV Featured Article Section Completed")
         
         # Parse Latest News section
@@ -71,15 +67,15 @@ def parse_arise_news(html_content):
                     title_elem = item.find('h3')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img', class_='wp-post-image')
                     if img_elem:
                         article['image_url'] = img_elem.get('src', '')
-                    
-                    if article.get('title'):
-                        article['category'] = 'Latest News'
-                        parsed_data['articles'].append(article)
+
+                    if not img_elem:
+                        article['image_url'] = None
+                    parsed_data['articles'].append(article)
         logging.info("Parsing Arise TV Latest News Section Completed")
         
         # Parse Global News section
@@ -104,15 +100,15 @@ def parse_arise_news(html_content):
                     title_elem = item.find('h3')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img', class_='wp-post-image')
                     if img_elem:
                         article['image_url'] = img_elem.get('src', '')
-                    
-                    if article.get('title'):
-                        article['category'] = section_name
-                        parsed_data['articles'].append(article)
+
+                    if not img_elem:
+                        article['image_url'] = None
+                    parsed_data['articles'].append(article)
                 
                 logging.info(f"Parsing Arise TV {section_name} Section Completed")
         
@@ -128,8 +124,7 @@ def parse_arise_news(html_content):
                 # Get video ID
                 video_id = thumb.get('data-videoid', '')
                 if video_id:
-                    article['url'] = f'https://www.youtube.com/watch?v={video_id}'
-                    article['video_id'] = video_id
+                    article['news_url'] = f'https://www.youtube.com/watch?v={video_id}'
                 
                 # Get title
                 title_elem = thumb.find('div', class_='epyt-gallery-title')
@@ -144,10 +139,6 @@ def parse_arise_news(html_content):
                         start_idx = style.find('url(') + 4
                         end_idx = style.find(')', start_idx)
                         article['image_url'] = style[start_idx:end_idx]
-                
-                if article.get('title'):
-                    article['category'] = 'Videos'
-                    article['content_type'] = 'video'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Arise TV Videos Section Completed")
         
@@ -167,16 +158,15 @@ def parse_arise_news(html_content):
                         title_elem = item.find('h3')
                         if title_elem and title_elem.find('a'):
                             article['title'] = title_elem.find('a').get_text(strip=True)
-                            article['url'] = title_elem.find('a').get('href', '')
+                            article['news_url'] = title_elem.find('a').get('href', '')
                         
                         img_elem = item.find('img', class_='wp-post-image')
                         if img_elem:
                             article['image_url'] = img_elem.get('src', '')
-                        
-                        if article.get('title'):
-                            article['category'] = 'Popular'
-                            article['is_popular'] = True
-                            parsed_data['articles'].append(article)
+                            
+                        if not img_elem:
+                            article['image_url'] = None
+                        parsed_data['articles'].append(article)
         logging.info("Parsing Arise TV Popular Articles Section Completed")
         
         # Parse Top Stories section
@@ -196,16 +186,15 @@ def parse_arise_news(html_content):
                             title_elem = item.find('h3')
                             if title_elem and title_elem.find('a'):
                                 article['title'] = title_elem.find('a').get_text(strip=True)
-                                article['url'] = title_elem.find('a').get('href', '')
+                                article['news_url'] = title_elem.find('a').get('href', '')
                             
                             img_elem = item.find('img', class_='wp-post-image')
                             if img_elem:
                                 article['image_url'] = img_elem.get('src', '')
-                            
-                            if article.get('title'):
-                                article['category'] = 'Top Stories'
-                                article['is_top_story'] = True
-                                parsed_data['articles'].append(article)
+
+                            if not img_elem:
+                                article['image_url'] = None
+                            parsed_data['articles'].append(article)
         logging.info("Parsing Arise TV Top Stories Section Completed")
         
         # Parse Exclusives section
@@ -225,16 +214,15 @@ def parse_arise_news(html_content):
                             title_elem = item.find('h3')
                             if title_elem and title_elem.find('a'):
                                 article['title'] = title_elem.find('a').get_text(strip=True)
-                                article['url'] = title_elem.find('a').get('href', '')
+                                article['news_url'] = title_elem.find('a').get('href', '')
                             
                             img_elem = item.find('img', class_='wp-post-image')
                             if img_elem:
                                 article['image_url'] = img_elem.get('src', '')
-                            
-                            if article.get('title'):
-                                article['category'] = 'Exclusives'
-                                article['is_exclusive'] = True
-                                parsed_data['articles'].append(article)
+
+                            if not img_elem:
+                                article['image_url'] = None
+                            parsed_data['articles'].append(article)
         logging.info("Parsing Arise TV Exclusives Section Completed")
         
         # Remove duplicates based on title
@@ -259,12 +247,4 @@ def parse_arise_news(html_content):
         logging.error(f"An Error Occurred When Parsing Arise TV News Data: {e}")
         return None
 
-if __name__ == "__main__":
-    from pathlib import Path
-    import json
-    path = Path.cwd()
-    with open(f"{path}/arise.txt", "r") as f:
-        content = f.read()
-    result = parse_arise_news(content)
-    with open(f"arise_result.json", "w") as w:
-        json.dump(result, w, indent = 2)
+

@@ -35,7 +35,7 @@ def parse_saharareporters_news(html_content):
                 link = title_elem.find("a")
                 if link:
                     raw_url = link.get("href", "").strip()
-                    data["url"] = (
+                    data["news_url"] = (
                         BASE_URL + raw_url if raw_url.startswith("/") else raw_url
                     )
                     data["title"] = link.get_text(strip=True)
@@ -47,6 +47,8 @@ def parse_saharareporters_news(html_content):
                 data["image_url"] = (
                     BASE_URL + src if src.startswith("/") else src
                 )
+            if not img_elem:
+                data['image_url'] = None
 
             # ---------------- Date ----------------
             date_text = article.get_text(" ", strip=True)
@@ -56,7 +58,7 @@ def parse_saharareporters_news(html_content):
                 date_text
             )
             if match:
-                data["date"] = match.group(0)
+                data["published_at"] = match.group(0)
 
             if data.get("title"):
                 parsed_data["articles"].append(data)
@@ -87,3 +89,4 @@ def parse_saharareporters_news(html_content):
     except Exception as e:
         logging.error(f"An Error Occurred While Parsing Sahara Reporters: {e}")
         return None
+

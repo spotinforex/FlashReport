@@ -41,16 +41,13 @@ def parse_businessday_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 time_elem = item.find('span', class_='time')
                 if time_elem:
-                    article['date_posted'] = time_elem.get_text(strip=True)
-                
-                if article.get('title'):
-                    article['section'] = 'Top Stories'
-                    article['category'] = 'Top News'
-                    parsed_data['articles'].append(article)
+                    article['published_at'] = time_elem.get_text(strip=True)
+                    article['image_url'] = None
+                parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Top Stories Section Completed")
         
         # Parse Main Featured Story
@@ -64,29 +61,18 @@ def parse_businessday_news(html_content):
                 title_elem = item.find('h2')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                author_elem = item.find('span', class_='post-author')
-                if author_elem and author_elem.find('a'):
-                    article['author'] = author_elem.find('a').get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 time_elem = item.find('span', class_='post-time')
                 if time_elem:
-                    article['date_posted'] = time_elem.get_text(strip=True)
-                
-                excerpt_elem = item.find('p')
-                if excerpt_elem:
-                    article['excerpt'] = excerpt_elem.get_text(strip=True)
+                    article['published_at'] = time_elem.get_text(strip=True)
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-                
-                if article.get('title'):
-                    article['is_featured'] = True
-                    article['section'] = 'Featured'
-                    article['category'] = 'Featured Story'
-                    parsed_data['articles'].append(article)
+                if not img_elem:
+                    article['image_url'] = None
+                parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Featured Story Section Completed")
         
         # Parse Recent News Section
@@ -100,16 +86,13 @@ def parse_businessday_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 time_elem = item.find('span', class_='time')
                 if time_elem:
-                    article['date_posted'] = time_elem.get_text(strip=True)
-                
-                if article.get('title'):
-                    article['section'] = 'Recent'
-                    article['category'] = 'Recent News'
-                    parsed_data['articles'].append(article)
+                    article['published_at'] = time_elem.get_text(strip=True)
+                    article['image_url'] = None
+                parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Recent News Section Completed")
         
         # Parse Premium Section
@@ -123,20 +106,18 @@ def parse_businessday_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 date_elem = item.find('span', class_='post-date')
                 if date_elem:
-                    article['date_posted'] = date_elem.get_text(strip=True)
+                    article['published_at'] = date_elem.get_text(strip=True)
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-                
-                if article.get('title'):
-                    article['section'] = 'Premium'
-                    article['category'] = 'Premium Content'
-                    parsed_data['articles'].append(article)
+                if not img_elem:
+                    article['image_url'] = None
+                parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Premium Section Completed")
         
         # Parse Other News Section
@@ -150,33 +131,19 @@ def parse_businessday_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
-                author_elem = item.find('span', class_='post-author')
-                if author_elem and author_elem.find('a'):
-                    article['author'] = author_elem.find('a').get_text(strip=True)
                 
                 time_elem = item.find('span', class_='post-time')
                 if time_elem:
-                    article['date_posted'] = time_elem.get_text(strip=True)
-                
-                excerpt_elem = item.find('p', class_='post-excerpt')
-                if excerpt_elem:
-                    article['excerpt'] = excerpt_elem.get_text(strip=True)
-                
-                category_elem = item.find('span', class_='category')
-                if category_elem and category_elem.find('a'):
-                    article['category'] = category_elem.find('a').get_text(strip=True)
+                    article['published_at'] = time_elem.get_text(strip=True)
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-                
-                if article.get('title'):
-                    article['section'] = 'Other News'
-                    if not article.get('category'):
-                        article['category'] = 'News'
-                    parsed_data['articles'].append(article)
+                if not img_elem:
+                    article['image_url'] = None
+                parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Other News Section Completed")
         
         # Parse Columnists Section
@@ -190,24 +157,13 @@ def parse_businessday_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                author_elem = item.find('span', class_='post-author')
-                if author_elem and author_elem.find('a'):
-                    article['author'] = author_elem.find('a').get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 time_elem = item.find('span', class_='post-time')
                 if time_elem:
-                    article['date_posted'] = time_elem.get_text(strip=True)
-                
-                img_elem = item.find('img')
-                if img_elem:
-                    article['author_image'] = img_elem.get('src', '')
-                
-                if article.get('title'):
-                    article['section'] = 'Columnists'
-                    article['category'] = 'Opinion'
-                    parsed_data['articles'].append(article)
+                    article['published_at'] = time_elem.get_text(strip=True)
+                    article['image_url'] = None
+                parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Columnists Section Completed")
         
         # Parse Opinion News Section
@@ -221,21 +177,13 @@ def parse_businessday_news(html_content):
                 title_elem = item.find('p', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 time_elem = item.find('span', class_='post-time')
                 if time_elem:
-                    article['date_posted'] = time_elem.get_text(strip=True)
-                
-                category_elem = item.find('span', class_='category')
-                if category_elem and category_elem.find('a'):
-                    article['category'] = category_elem.find('a').get_text(strip=True)
-                
-                if article.get('title'):
-                    article['section'] = 'Opinion'
-                    if not article.get('category'):
-                        article['category'] = 'Who Is Thinking For Nigeria'
-                    parsed_data['articles'].append(article)
+                    article['published_at'] = time_elem.get_text(strip=True)
+                    article['image_url'] = None
+                parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Opinion Section Completed")
         
         # Parse Section-wise News (Economy, Energy, Technology, Markets, etc.)
@@ -253,28 +201,19 @@ def parse_businessday_news(html_content):
                     title_elem = item.find('h2', class_='post-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
-                    author_elem = item.find('span', class_='post-author')
-                    if author_elem and author_elem.find('a'):
-                        article['author'] = author_elem.find('a').get_text(strip=True)
-                    
+                   
                     date_elem = item.find('span', class_='post-date') or item.find('span', class_='post-time')
                     if date_elem:
-                        article['date_posted'] = date_elem.get_text(strip=True)
-                    
-                    excerpt_elem = item.find('p', class_='post-excerpt')
-                    if excerpt_elem:
-                        article['excerpt'] = excerpt_elem.get_text(strip=True)
+                        article['published_at'] = date_elem.get_text(strip=True)
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-                    
-                    if article.get('title'):
-                        article['section'] = section_name
-                        article['category'] = section_name
-                        parsed_data['articles'].append(article)
+                    if not img_elem:
+                        article['image_url'] = None
+                    parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Section-specific News Completed")
         
         # Parse Partner Content Section
@@ -293,24 +232,18 @@ def parse_businessday_news(html_content):
                 title_elem = item.find('h2', class_='post-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                author_elem = item.find('span', class_='post-author')
-                if author_elem and author_elem.find('a'):
-                    article['author'] = author_elem.find('a').get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 date_elem = item.find('span', class_='post-date')
                 if date_elem:
-                    article['date_posted'] = date_elem.get_text(strip=True)
+                    article['published_at'] = date_elem.get_text(strip=True)
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-                
-                if article.get('title'):
-                    article['section'] = section_name
-                    article['category'] = section_name
-                    parsed_data['articles'].append(article)
+                if not img_elem:
+                    article['image_url'] = None
+                parsed_data['articles'].append(article)
         logging.info("Parsing BusinessDay Partner Content Section Completed")
         
         # Remove duplicates based on title
@@ -334,42 +267,3 @@ def parse_businessday_news(html_content):
         logging.error(f"An Error Occurred When Parsing BusinessDay Data: {e}")
         return None
 
-
-# Example usage
-if __name__ == "__main__":
-    import json
-    from pathlib import Path
-    
-    # Read the HTML file
-    try:
-        path = Path.cwd()
-        with open(f'{path}/businessday.txt', 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        
-        # Parse the content
-        parsed_data = parse_businessday_news(html_content)
-        
-        if parsed_data:
-            # Save to JSON file
-            with open('businessday_news.json', 'w', encoding='utf-8') as f:
-                json.dump(parsed_data, f, indent=2, ensure_ascii=False)
-            
-            logging.info(f"\nData saved to businessday_news.json")
-            logging.info(f"Total articles scraped: {len(parsed_data['articles'])}")
-            
-            # Print sections summary
-            sections_count = {}
-            for article in parsed_data['articles']:
-                section = article.get('section', 'Unknown')
-                sections_count[section] = sections_count.get(section, 0) + 1
-            
-            logging.info("\n--- Articles by Section ---")
-            for section, count in sorted(sections_count.items()):
-                logging.info(f"{section}: {count} articles")
-        else:
-            logging.error("Failed to parse BusinessDay data")
-            
-    except FileNotFoundError:
-        logging.error("businessday.html file not found. Please ensure the HTML file exists in the current directory.")
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")

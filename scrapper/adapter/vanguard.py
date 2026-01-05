@@ -47,25 +47,21 @@ def parse_vanguard_news(html_content):
                 title_elem = item.find('h3', class_='entry-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                # Extract excerpt
-                excerpt_elem = item.find('div', class_='entry-excerpt')
-                if excerpt_elem and excerpt_elem.find('p'):
-                    article['excerpt'] = excerpt_elem.find('p').get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 # Extract image
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 # Extract time
                 time_elem = item.find('div', class_='entry-date')
                 if time_elem:
-                    article['time_posted'] = time_elem.get_text(strip=True)
+                    article['published_at'] = time_elem.get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = section_name
                     parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard Latest News Section Completed")
@@ -80,25 +76,16 @@ def parse_vanguard_news(html_content):
             title_elem = featured.find('h3', class_='entry-title')
             if title_elem and title_elem.find('a'):
                 article['title'] = title_elem.find('a').get_text(strip=True)
-                article['url'] = title_elem.find('a').get('href', '')
+                article['news_url'] = title_elem.find('a').get('href', '')
             
-            excerpt_elem = featured.find('div', class_='entry-excerpt')
-            if excerpt_elem:
-                article['excerpt'] = excerpt_elem.get_text(strip=True)
             
             img_elem = featured.find('img')
             if img_elem:
                 article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
-            
-            # Get category from parent section
-            parent_section = featured.find_parent('div', class_='section-category-preview')
-            if parent_section:
-                category_header = parent_section.find('h2', class_='heading-title')
-                if category_header:
-                    article['category'] = category_header.get_text(strip=True)
+            if not img_elem:
+                article['image_url'] = None
             
             if article.get('title'):
-                article['is_featured'] = True
                 parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard Featured Articles Completed")
@@ -115,14 +102,15 @@ def parse_vanguard_news(html_content):
                     title_elem = item.find('h3', class_='entry-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     if article.get('title'):
-                        article['category'] = 'Politics'
                         parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard Politics Section Completed")
@@ -146,19 +134,15 @@ def parse_vanguard_news(html_content):
                 title_elem = featured.find('h3', class_='entry-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                excerpt_elem = featured.find('div', class_='entry-excerpt')
-                if excerpt_elem:
-                    article['excerpt'] = excerpt_elem.get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = featured.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 if article.get('title'):
-                    article['category'] = section_name
-                    article['is_featured'] = True
                     parsed_data['articles'].append(article)
             
             # Parse list articles
@@ -170,14 +154,15 @@ def parse_vanguard_news(html_content):
                     title_elem = item.find('h3', class_='entry-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     if article.get('title'):
-                        article['category'] = section_name
                         parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard More News Section Completed")
@@ -197,14 +182,15 @@ def parse_vanguard_news(html_content):
                     title_elem = item.find('h3', class_='entry-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     if article.get('title'):
-                        article['category'] = section_name
                         parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard Metro Section Completed")
@@ -219,18 +205,19 @@ def parse_vanguard_news(html_content):
                 title_elem = item.find('h3', class_='entry-title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 time_elem = item.find('div', class_='entry-date')
                 if time_elem:
-                    article['time_posted'] = time_elem.get_text(strip=True)
+                    article['published_at'] = time_elem.get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = 'Columns'
                     parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard Columns Section Completed")
@@ -246,14 +233,15 @@ def parse_vanguard_news(html_content):
                     title_elem = item.find('h3', class_='entry-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     if article.get('title'):
-                        article['category'] = 'Entertainment'
                         parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard Entertainment Section Completed")
@@ -269,14 +257,15 @@ def parse_vanguard_news(html_content):
                     title_elem = item.find('h3', class_='entry-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     if article.get('title'):
-                        article['category'] = 'Sports'
                         parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard Sports Section Completed")
@@ -292,14 +281,15 @@ def parse_vanguard_news(html_content):
                     title_elem = item.find('h3', class_='entry-title')
                     if title_elem and title_elem.find('a'):
                         article['title'] = title_elem.find('a').get_text(strip=True)
-                        article['url'] = title_elem.find('a').get('href', '')
+                        article['news_url'] = title_elem.find('a').get('href', '')
                     
                     img_elem = item.find('img')
                     if img_elem:
                         article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                    if not img_elem:
+                        article['image_url'] = None
                     
                     if article.get('title'):
-                        article['category'] = 'Business'
                         parsed_data['articles'].append(article)
         
         logging.info("Parsing Vanguard Business Section Completed")
@@ -327,44 +317,4 @@ def parse_vanguard_news(html_content):
         return None
 
 
-# Example usage
-if __name__ == "__main__":
-    from pathlib import Path
-    import json
-    
-    # Read HTML file
-    html_file = Path('vanguard.html')
-    if html_file.exists():
-        with open(html_file, 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        
-        # Parse the content
-        result = parse_vanguard_news(html_content)
-        
-        if result:
-            # Save to JSON file
-            output_file = Path('vanguard_articles.json')
-            with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(result, f, ensure_ascii=False, indent=2)
-            
-            logging.info(f"Data saved to {output_file}")
-            
-            # Print summary
-            print(f"\n{'='*60}")
-            print(f"SCRAPING SUMMARY")
-            print(f"{'='*60}")
-            print(f"Source: {result['source']}")
-            print(f"Total Articles: {result['total_articles']}")
-            print(f"Scraped At: {result['scraped_at']}")
-            
-            # Print sample by category
-            categories = {}
-            for article in result['articles']:
-                cat = article.get('category', 'Unknown')
-                categories[cat] = categories.get(cat, 0) + 1
-            
-            print(f"\nArticles by Category:")
-            for cat, count in sorted(categories.items(), key=lambda x: x[1], reverse=True):
-                print(f"  {cat}: {count}")
-    else:
-        logging.error(f"File {html_file} not found")
+
