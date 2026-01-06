@@ -32,7 +32,7 @@ telegram_id = {
     'Nigeria News': '9dc82a1a-dceb-47f1-8807-6c4703bbc46c',
 }
 
-TIME_CUTOFF = datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(hours=24)
+TIME_CUTOFF = datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(hours=3)
 
 client = TelegramClient("flashreport_session", api_id, api_hash)
 

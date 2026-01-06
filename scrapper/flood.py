@@ -10,6 +10,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 
+source_id = {'Weather Api':'dbff2799-51e0-44f8-b741-b6371b8e9c3c'}
+
 def weather_api(lat, lon, days):
     try:
         logging.info("Retrieving Weather Data In Progress")
@@ -60,7 +62,3 @@ def weather_api(lat, lon, days):
         logging.error(f"Error calling Weather API: {e}")
         return "Weather verification failed"
 
-
-if __name__ == "__main__":
-    bool, a = weather_api(5.4840,7.0351, 30)
-    print(bool)
