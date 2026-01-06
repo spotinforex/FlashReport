@@ -4,3 +4,4 @@
 *.json
 *.pyc
 .env
+flood_data.py

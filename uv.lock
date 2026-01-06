@@ -268,6 +268,7 @@ dependencies = [
     { name = "playwright" },
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "supabase" },
     { name = "telethon" },
 ]
@@ -279,6 +280,7 @@ requires-dist = [
     { name = "playwright", specifier = ">=1.57.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "supabase", specifier = ">=2.27.0" },
     { name = "telethon", specifier = ">=1.42.0" },
 ]
