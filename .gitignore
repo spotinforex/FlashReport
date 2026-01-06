@@ -5,4 +5,5 @@
 *.pyc
 .env
 flood_data.py
-.session
+flashreport_session.session
+

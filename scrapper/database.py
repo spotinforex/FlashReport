@@ -147,9 +147,5 @@ class Database:
             self.conn.close()
         logging.info("Database connection closed")
 
-        
-        
     
-
-
 
