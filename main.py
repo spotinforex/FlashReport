@@ -15,11 +15,14 @@ async def pipeline():
     ''' Total Pipeline Process '''
     logging.info("Pipeline Process Initialized")
     start = time.time()
-    #await main()
-    filter_pipeline()
-    clustering_pipeline()
+    scrap = await main()
+    fill = filter_pipeline()
+    clus = clustering_pipeline()
     end = time.time()
     logging.info(f"Pipeline Process Completed. Time Taken {end-start:.2f} seconds")
+    if scrap and fill and clus:
+        return "Pipeline Ran Successfully"
+    else:
+        return "Failed To Complete Pipeline Run"
+    
 
-if __name__ == "__main__":
-        asyncio.run(pipeline())

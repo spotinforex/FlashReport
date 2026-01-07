@@ -123,7 +123,7 @@ def assign_cluster(data):
         ))
         
         if match:
-            event_id = match.get('event_id')
+            event_id = match.get('id')
 
             link_article_to_event(
                 db,
@@ -171,7 +171,7 @@ def prepare_clusters_for_gemini():
                 e.confidence,
                 e.status
             FROM events e
-            WHERE e.last_updated >= NOW() - INTERVAL '3 HOURS'
+            WHERE e.last_updated >= NOW() - INTERVAL '4 HOURS'
             AND e.status != 'resolved'
         )
         SELECT
@@ -317,8 +317,15 @@ def clustering_pipeline():
 
         end = time.time()
         logging.info(f"Response Saved. Total Time Taken: {end - start:.2f} seconds")
+        return True
 
     except Exception as e:
         import traceback
         logging.error(f"Failed To Cluster Headlines: {e}\n{traceback.format_exc()}")
+
+if __name__ == "__main__":
+    query = ["ALTER TABLE events ADD COLUMN state TEXT;",
+            "ALTER TABLE signals ADD COLUMN state TEXT;"]
+    for q in query:
+        db.execute(q)
 

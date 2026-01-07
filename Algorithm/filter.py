@@ -121,7 +121,7 @@ def filter_pipeline():
         query = """
             SELECT *
             FROM parsed_articles
-            WHERE scraped_at >= NOW() - INTERVAL '72 hours'
+            WHERE scraped_at >= NOW() - INTERVAL '4 hours'
             ORDER BY scraped_at DESC;
             """
         rows = database.fetch_all(query)

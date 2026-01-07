@@ -94,6 +94,7 @@ async def main():
 
         end = time.time()
         logging.info(f"Time Taken: {end - start:.2f} seconds")
+        return True
 
     except Exception as e:
         logging.error(f"An Error Occurred During Data Scraping: {e}")
