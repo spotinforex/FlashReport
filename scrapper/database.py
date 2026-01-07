@@ -2,6 +2,7 @@ import logging, os, sys
 import psycopg2
 from psycopg2.extras import execute_batch
 from dotenv import load_dotenv
+from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger("runner")
 logging.basicConfig(
@@ -27,7 +28,7 @@ class Database:
                 port=int(os.getenv("DB_PORT", 5432)),
                 sslmode="require"
             )
-            self.cursor = self.conn.cursor()
+            self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
             logging.info("Connected To Database")
         except Exception as e:
             logging.error(f"Failed To Connect to Database. Error: {e}")

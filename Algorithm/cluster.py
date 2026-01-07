@@ -14,33 +14,46 @@ from scrapper.database import Database
 from pathlib import Path
 import time
 
-def create_event(db,event):
-    ''' Creates New Events '''
-    query = """
-    INSERT INTO events (
-        event_type,
-        title,
-        location,
-        first_detected,
-        last_updated,
-        severity,
-        confidence,
-        status
-    )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    RETURNING id;
-    """
+db = Database()
 
-    return db.fetch_one(query, (
-        event["event_type"],
-        event["title"],
-        event["location"],
-        event["timestamp"],
-        event["timestamp"],
-        event["severity"],
-        event["confidence"],
-        "new"
-    ))[0]
+def create_event(db, event):
+    """Creates a new event and returns its ID safely"""
+    try:
+        query = """
+        INSERT INTO events (
+            event_type,
+            title,
+            location,
+            first_detected,
+            last_updated,
+            severity,
+            confidence,
+            status
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id;
+        """
+
+        row = db.fetch_one(query, (
+            event.get("event_type"),
+            event.get("title"),
+            event.get("location"),
+            event.get("timestamp"),
+            event.get("timestamp"),
+            event.get("severity"),
+            event.get("confidence"),
+            "new"
+        ))
+
+        if not row or "id" not in row:
+            logging.error(f"Failed to create event, query returned: {row}")
+            return None
+
+        return row["id"]
+
+    except Exception as e:
+        logging.error(f"Error creating event: {e}")
+        return None
 
 def link_article_to_event(db, event_id, article_id, relevance):
     ''' Link many Articles of the same event together '''
@@ -80,18 +93,15 @@ TIME_WINDOW_DAYS = 30
 
 def assign_cluster(data):
     ''' Creating and Assigning Clusters to Signals '''
-    try:
-        db = Database()
-
+    try: 
         event_candidate = {
-                        'timestamp': datetime.utcnow(),
-                        'event_type': data[2],
-                        'location': data[4],
-                        'article_id': data[1],
-                        'confidence': data[3] ,
-                        'severity': data[-3],
-                        'title': data[-1]
-                        }          
+                        'timestamp': data.get('created_at'),
+                        'event_type': data.get('signal_type'),
+                        'location': data.get('extracted_location'),
+                        'article_id': data.get('article_id'),
+                        'confidence': data.get('confidence'),
+                        'severity': data.get('severity')
+                    }
         query = """
         SELECT id, last_updated
         FROM events
@@ -113,13 +123,13 @@ def assign_cluster(data):
         ))
         
         if match:
-            event_id = match[0]
+            event_id = match.get('event_id')
 
             link_article_to_event(
                 db,
                 event_id,
-                event_candidate["article_id"],
-                event_candidate["confidence"]
+                event_candidate.get("article_id"),
+                event_candidate.get("confidence")
             )
 
             update_event(db,event_id, event_candidate)
@@ -137,7 +147,8 @@ def assign_cluster(data):
 
         return event_id
     except Exception as e:
-        logging.error(f" An Error Occurred While Assigning Clusters: {e}")
+        import traceback
+        logging.error(f"An Error Occurred While Assigning Clusters: {e}\n{traceback.format_exc()}")
 
 def convert_datetime(obj):
     if isinstance(obj, datetime):
@@ -147,8 +158,6 @@ def convert_datetime(obj):
 
 def prepare_clusters_for_gemini():
     ''' Preprocess Cluster For Gemini '''
-
-    db = Database()
     query = ''' 
         WITH recent_events AS (
             SELECT
@@ -189,30 +198,27 @@ def prepare_clusters_for_gemini():
     clusters = defaultdict(lambda: {"event_id": None, "event_type": None, "location": None, "articles": []})
 
     for row in records:
-        (
-            event_id, event_type, title, location, first_detected, last_updated,
-            severity, confidence, status, article_id, article_text, relevance
-        ) = row
+        event_id = row["event_id"]
 
         cluster = clusters[event_id]
         cluster["event_id"] = event_id
-        cluster["event_type"] = event_type
-        cluster["location"] = location
-        cluster["last_updated"] = last_updated
-        cluster["severity"] = severity
-        cluster["confidence"] = confidence
-        cluster["status"] = status
+        cluster["event_type"] = row["event_type"]
+        cluster["location"] = row["cluster_location"]
+        cluster["last_updated"] = row["last_updated"]
+        cluster["severity"] = row["cluster_severity"]
+        cluster["confidence"] = row["cluster_confidence"]
+        cluster["status"] = row["cluster_status"]
 
         cluster["articles"].append({
-            "article_id": article_id,
-            "text": article_text,
-            "relevance": relevance
+            "article_id": row["article_id"],
+            "text": row["article_text"],
+            "relevance": row["relevance_score"]
         })
+
 
     # convert defaultdict to normal list of dicts
     parsed_values = list(clusters.values())
-    json_values = json.dumps(parsed_values, indent =2, default = convert_datetime)
-    return json_values
+    return parsed_values
 
 def save_gemini_cluster_analysis(db, cluster_results):
     """
@@ -220,14 +226,13 @@ def save_gemini_cluster_analysis(db, cluster_results):
     """
     try:
         analysis_list = []
-        cluster_results = json.loads(cluster_results)
         for result in cluster_results.get("results", []):
             query = """
             UPDATE events
             SET
                 status = CASE WHEN %s THEN 'alert' ELSE status END,
                 severity = CASE WHEN %s THEN 'high' ELSE severity END,
-                last_updated = %s,
+                last_updated = %s
             WHERE id = %s;
             """
 
@@ -250,16 +255,44 @@ def save_gemini_cluster_analysis(db, cluster_results):
         logging.error(f"An Error Occurred When Saving Gemini Analysis Cluster: {e}")
         return None
 
+def safe_parse_gemini_response(response):
+    ''' Response Checker '''
+    if response is None:
+        return None
+
+    # If Gemini already returned a dict
+    if isinstance(response, dict):
+        return response
+
+    # If Gemini returned text
+    if isinstance(response, str):
+        response = response.strip()
+
+        if not response:
+            return None
+
+        # Remove markdown code fences
+        if response.startswith("```"):
+            response = response.strip("`")
+            response = response.replace("json", "", 1).strip()
+
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError:
+            logging.error(f"Gemini returned non-JSON:\n{response}")
+            return None
+
+    return None
+
+
 def clustering_pipeline():
     """ Pipeline For Handling Clustering Process """
     try:
         start = time.time()
-        db = Database()
 
-        cutoff_time = datetime.utcnow() - timedelta(hours=3)
+        cutoff_time = datetime.utcnow() - timedelta(hours=4)
         query = "SELECT * FROM signals WHERE created_at >= %s"
         data_list = db.fetch_all(query, (cutoff_time,))
-        
         logging.info("Assigning Clusters In Progress")
         for data in data_list:
             assign_cluster(data)
@@ -275,6 +308,10 @@ def clustering_pipeline():
         logging.info("Calling Gemini")
         response = call_gemini(prompt)  # should return dict
 
+        logging.info("Verifying Gemini Response")
+        response = safe_parse_gemini_response(response)
+        if response is None:
+            return None
         logging.info("Response Retrieved, Saving Response")
         save_gemini_cluster_analysis(db, response)
 
@@ -284,19 +321,4 @@ def clustering_pipeline():
     except Exception as e:
         import traceback
         logging.error(f"Failed To Cluster Headlines: {e}\n{traceback.format_exc()}")
-
-
-
-if __name__ == "__main__":
-    clustering_pipeline()
-    
-            
-    
-
-
-
-                    
-            
-    
-    
 

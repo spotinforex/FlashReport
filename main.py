@@ -1,19 +1,25 @@
-from playwright.async_api import async_playwright 
-import  asyncio
-from scrapper.adapter.punch import parse_punch_news, save_to_json
+from scrapper.scrapy import main
+from Algorithm.filter import filter_pipeline
+from Algorithm.cluster import clustering_pipeline
+import time, asyncio
 
-async def main():
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+import logging,sys
+logger = logging.getLogger("runner")
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 
-        await page.goto("https://punchng.com", wait_until = "domcontentloaded")
-        content = await page.content()
-        print(content)
+async def pipeline():
+    ''' Total Pipeline Process '''
+    logging.info("Pipeline Process Initialized")
+    start = time.time()
+    #await main()
+    filter_pipeline()
+    clustering_pipeline()
+    end = time.time()
+    logging.info(f"Pipeline Process Completed. Time Taken {end-start:.2f} seconds")
 
-        parsed = parse_punch_news(content)
-        save_to_json(parsed)
-
-        await browser.close()
-
-asyncio.run(main())
+if __name__ == "__main__":
+        asyncio.run(pipeline())

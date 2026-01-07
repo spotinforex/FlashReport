@@ -128,14 +128,16 @@ def filter_pipeline():
         results = []
 
         for row in rows:
-            id = row[0]
-            msg = row[2]
+            id = row.get('id')
+            msg = row.get('title')
             result = ingest_message(msg)
 
             if result:
                 results.append({'id' : id,
                                 'headline': msg})
-        logging.info("Keyword Filtering Completed, Calling Gemini in Progress")
+        logging.info(f"Keyword Filtering Completed, Calling Gemini in Progress. {len(results)} keywords filtered.")
+        if len(results) == 0:
+            return None
         path = Path.cwd()
         with open(f"{path}/Algorithm/system_instructions/filter_instructions.txt", "r") as w:
             instructions = w.read()
@@ -145,7 +147,8 @@ def filter_pipeline():
         status = gemini_results_to_signals(response)
         return status
     except Exception as e:
-        logging.error(f"An Error Occurred During The Filtering Pipeline. {e}")
+        import traceback
+        logging.error(f"An Error Occurred During The Filtering Pipeline. {e}\n{traceback.format_exc()}")
 
 
 
