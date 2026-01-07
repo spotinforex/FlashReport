@@ -6,7 +6,11 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 
-import re
+import re, json
+from Algorithm.gemini_filter import call_gemini
+from scrapper.database import Database 
+from pathlib import Path
+from datetime import datetime
 
 def normalize_text(text):
     """
@@ -61,6 +65,87 @@ def ingest_message(msg):
         return category
     except Exception as e:
         logging.error(f" An Error Occurred When Filtering Messages: {e}")
+
+def gemini_results_to_signals(gemini_response: dict) -> list[dict]:
+    """
+    Convert Gemini batch output into DB-ready signal records
+    """
+    try:
+        signals = []
+        now = datetime.utcnow()
+        gemini_response = json.loads(gemini_response)
+        for item in gemini_response.get("results", []):
+            if not item.get("is_real_incident"):
+                continue  # hard filter: no noise in signals table
+
+            location = item.get("location") or {}
+
+            extracted_location = ", ".join(
+                part for part in [
+                    location.get("city"),
+                    location.get("region"),
+                    location.get("country"),
+                ]
+                if part
+            ) or None
+
+            signal = {
+                "article_id": item["id"],                  
+                "signal_type": item.get("event_type"),
+                "confidence": item.get("confidence"),
+                "extracted_location": extracted_location,
+                "created_at": now,
+                "severity": item.get("severity"),
+                "is_ongoing": item.get("is_ongoing"),
+                "summary": item.get("summary"),
+            }
+
+            signals.append(signal)
+        database = Database()
+        status = database.insert('signals', signals)
+        if status is False:
+            logging.info("Failed To Insert Signals To Database")
+            return False
+        return True
+    except Exception as e:
+        logging.error(f" An Error Occurred When Converting Gemini Response to Signals: {e}")
+        return False
+
+def filter_pipeline():
+    '''
+    Pipeline For Filtering Messages 
+    '''
+    try:
+        logging.info("Filtering Processing Initialized")
+        database = Database()
+        query = """
+            SELECT *
+            FROM parsed_articles
+            WHERE scraped_at >= NOW() - INTERVAL '72 hours'
+            ORDER BY scraped_at DESC;
+            """
+        rows = database.fetch_all(query)
+        results = []
+
+        for row in rows:
+            id = row[0]
+            msg = row[2]
+            result = ingest_message(msg)
+
+            if result:
+                results.append({'id' : id,
+                                'headline': msg})
+        logging.info("Keyword Filtering Completed, Calling Gemini in Progress")
+        path = Path.cwd()
+        with open(f"{path}/Algorithm/system_instructions/filter_instructions.txt", "r") as w:
+            instructions = w.read()
+        prompt = f"{instructions} {results}"
+        response = call_gemini(prompt)
+        logging.info("Retrieved Gemini Response, Inserting to Database")
+        status = gemini_results_to_signals(response)
+        return status
+    except Exception as e:
+        logging.error(f"An Error Occurred During The Filtering Pipeline. {e}")
 
 
 

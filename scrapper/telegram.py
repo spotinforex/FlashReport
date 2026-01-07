@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import logging
 import re
-from database import Database 
+from scrapper.database import Database 
 import time
 
 load_dotenv()

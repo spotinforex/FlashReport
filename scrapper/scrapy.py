@@ -1,22 +1,21 @@
 import logging
 import sys
-import asyncio
 import time
 from playwright.async_api import async_playwright
 
-from adapter.punch import parse_punch_news
-from adapter.channeltv import parse_channel_news
-from adapter.vanguard import parse_vanguard_news
-from adapter.premuimtimes import parse_premuimtimes_news
-from adapter.businessday import parse_businessday_news
-from adapter.saharareporters import parse_saharareporters_news
-from adapter.guardian import parse_guardian_news
-from adapter.arise import parse_arise_news
+from scrapper.adapter.punch import parse_punch_news
+from scrapper.adapter.channeltv import parse_channel_news
+from scrapper.adapter.vanguard import parse_vanguard_news
+from scrapper.adapter.premuimtimes import parse_premuimtimes_news
+from scrapper.adapter.businessday import parse_businessday_news
+from scrapper.adapter.saharareporters import parse_saharareporters_news
+from scrapper.adapter.guardian import parse_guardian_news
+from scrapper.adapter.arise import parse_arise_news
 from datetime import datetime
 
-from database import Database
-from preprocessor import preprocessor
-from telegram import scrape_recent_messages
+from scrapper.database import Database
+from scrapper.preprocessor import preprocessor
+from scrapper.telegram import scrape_recent_messages
 
 logger = logging.getLogger("runner")
 logging.basicConfig(
@@ -99,7 +98,4 @@ async def main():
     except Exception as e:
         logging.error(f"An Error Occurred During Data Scraping: {e}")
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
     
