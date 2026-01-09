@@ -318,7 +318,7 @@ def clustering_pipeline():
     """ Pipeline For Handling Clustering Process """
     try:
         start = time.time()
-        cutoff_time = datetime.utcnow() - timedelta(days=5)
+        cutoff_time = datetime.utcnow() - timedelta(hours=4)
         query = "SELECT * FROM signals WHERE created_at >= %s"
         data_list = db.fetch_all(query, (cutoff_time,))
         logging.info("Assigning Clusters In Progress")

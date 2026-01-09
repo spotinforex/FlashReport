@@ -71,7 +71,7 @@ class Database:
             self.conn.rollback()
             return False
             
-    def insert(self, table, data):
+    def insert(self, table, data, conflict_column = None):
         """
         Insert one or many records into a table.
         `data` can be:
@@ -92,9 +92,14 @@ class Database:
             columns = ", ".join(f'"{c}"' for c in columns_list)
             placeholders = ", ".join(["%s"] * len(columns_list))
 
+            conflict_clause = ""
+            if conflict_column:
+                conflict_clause = f'ON CONFLICT ("{conflict_column}") DO NOTHING'
+
             query = f"""
                 INSERT INTO "{table}" ({columns})
                 VALUES ({placeholders})
+                {conflict_clause}
             """
 
             values_list = []

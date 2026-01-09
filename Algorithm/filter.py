@@ -153,6 +153,3 @@ def filter_pipeline():
         logging.error(f"An Error Occurred During The Filtering Pipeline. {e}\n{traceback.format_exc()}")
 
 
-
-            
-        

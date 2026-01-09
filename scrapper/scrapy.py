@@ -85,7 +85,7 @@ async def main():
                     article['scraped_at'] = datetime.now().isoformat()
 
                 if articles:
-                    database.insert('parsed_articles', articles)
+                    database.insert('parsed_articles', articles, conflict_column = 'hash')
                     database.update("sources", source_id[source_name], data.get('scraped_at', time.strftime("%Y-%m-%dT%H:%M:%S")))
 
             await browser.close()
