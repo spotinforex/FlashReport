@@ -24,5 +24,9 @@ async def pipeline():
         return "Pipeline Ran Successfully"
     else:
         return "Failed To Complete Pipeline Run"
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(pipeline())
     
 

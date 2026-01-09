@@ -28,20 +28,22 @@ def create_event(db, event):
             last_updated,
             severity,
             confidence,
+            state,
             status
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
         """
 
         row = db.fetch_one(query, (
             event.get("event_type"),
-            event.get("title"),
+            event.get("summary"),
             event.get("location"),
             event.get("timestamp"),
             event.get("timestamp"),
             event.get("severity"),
             event.get("confidence"),
+            event.get("state"),
             "new"
         ))
 
@@ -77,6 +79,10 @@ def update_event(db, event_id, event):
         last_updated = %s,
         severity = %s,
         confidence = %s,
+        title = CASE
+            WHEN %s > confidence THEN %s
+            ELSE title
+        END,
         status = 'ongoing'
     WHERE id = %s;
     """
@@ -85,6 +91,8 @@ def update_event(db, event_id, event):
         event["timestamp"],
         event["severity"],
         event["confidence"],
+        event["confidence"],
+        event["summary"],
         event_id
     ))
 
@@ -100,7 +108,9 @@ def assign_cluster(data):
                         'location': data.get('extracted_location'),
                         'article_id': data.get('article_id'),
                         'confidence': data.get('confidence'),
-                        'severity': data.get('severity')
+                        'severity': data.get('severity'),
+                        'summary': data.get('summary'),
+                        'state': data.get('state')
                     }
         query = """
         SELECT id, last_updated
@@ -136,7 +146,10 @@ def assign_cluster(data):
             return event_id
 
         
-        event_id = create_event(db,event_candidate)
+        event_id = create_event(db, event_candidate)
+        if event_id is None:
+            logging.error(f"Could not create event for article {event_candidate.get('article_id')}")
+            return None
 
         link_article_to_event(
             db,
@@ -242,15 +255,31 @@ def save_gemini_cluster_analysis(db, cluster_results):
                 datetime.utcnow(),
                 result.get("event_id")
             ))
-            gemini_analysis = { 
-                'event_id': result.get("event_id"),
-                'same_incident': result.get("same_incident"),
-                'escalation': result.get("escalation"),
-                'alert': result.get("alert"),
-                'brief': result.get("brief")
-                }
+            gemini_analysis = (
+                result.get("event_id"),
+                result.get("same_incident"),
+                result.get("escalation"),
+                result.get("alert"),
+                result.get("brief")
+                )
             analysis_list.append(gemini_analysis)
-        db.insert('analysis', analysis_list)
+        query2 = """
+                INSERT INTO analysis (
+                    event_id,
+                    same_incident,
+                    escalation,
+                    alert,
+                    brief
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (event_id)
+                DO UPDATE SET
+                    same_incident = EXCLUDED.same_incident,
+                    escalation = EXCLUDED.escalation,
+                    alert = EXCLUDED.alert,
+                    brief = EXCLUDED.brief;
+                """
+        db.execute_batch(query2, analysis_list)
     except Exception as e:
         logging.error(f"An Error Occurred When Saving Gemini Analysis Cluster: {e}")
         return None
@@ -289,8 +318,7 @@ def clustering_pipeline():
     """ Pipeline For Handling Clustering Process """
     try:
         start = time.time()
-
-        cutoff_time = datetime.utcnow() - timedelta(hours=4)
+        cutoff_time = datetime.utcnow() - timedelta(days=5)
         query = "SELECT * FROM signals WHERE created_at >= %s"
         data_list = db.fetch_all(query, (cutoff_time,))
         logging.info("Assigning Clusters In Progress")
@@ -322,10 +350,4 @@ def clustering_pipeline():
     except Exception as e:
         import traceback
         logging.error(f"Failed To Cluster Headlines: {e}\n{traceback.format_exc()}")
-
-if __name__ == "__main__":
-    query = ["ALTER TABLE events ADD COLUMN state TEXT;",
-            "ALTER TABLE signals ADD COLUMN state TEXT;"]
-    for q in query:
-        db.execute(q)
 

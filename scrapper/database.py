@@ -138,6 +138,18 @@ class Database:
         except Exception as e:
             logging.error(f"An Error Occurred While Updating Table: {e}")
 
+    def execute_batch(self, query, data):
+        try:
+            logging.info("Batch Insertion In Progress")
+            # Batch insert (fast & safe)
+            execute_batch(self.cursor, query, data, page_size=100)
+            self.conn.commit()
+
+            logger.info(f"Inserted {len(data)} row(s)")
+            return True
+        except Exception as e:
+            logging.error(f"An Error Occurred While Batch Inserting Table: {e}")
+        
     def close(self):
         """
         Close cursor and connection

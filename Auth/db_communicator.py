@@ -126,7 +126,7 @@ def search_events(event_type, location=None, limit=15):
         params = [event_type]
 
         if location:
-            query += " AND LOWER(e.location) = LOWER(%s)"
+            query += " AND LOWER(e.state) = LOWER(%s)"
             params.append(location)
 
         query += """

@@ -98,6 +98,7 @@ def gemini_results_to_signals(gemini_response: dict) -> list[dict]:
                 "severity": item.get("severity"),
                 "is_ongoing": item.get("is_ongoing"),
                 "summary": item.get("summary"),
+                "state": item.get("region")
             }
 
             signals.append(signal)
@@ -143,6 +144,7 @@ def filter_pipeline():
             instructions = w.read()
         prompt = f"{instructions} {results}"
         response = call_gemini(prompt)
+        logging.info(f"Filter Gemini Response: {response}")
         logging.info("Retrieved Gemini Response, Inserting to Database")
         status = gemini_results_to_signals(response)
         return status
