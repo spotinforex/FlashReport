@@ -39,23 +39,21 @@ def parse_premuimtimes_news(html_content):
             title_elem = hero_section.find('h2', class_='jeg_post_title')
             if title_elem and title_elem.find('a'):
                 article['title'] = title_elem.find('a').get_text(strip=True)
-                article['url'] = title_elem.find('a').get('href', '')
-            
+
+                article['news_url'] = title_elem.find('a').get('href', '')
             img_elem = hero_section.find('div', class_='thumbnail-container')
             if img_elem and img_elem.find('img'):
                 article['image_url'] = img_elem.find('img').get('data-src') or img_elem.find('img').get('src', '')
+
+            if not img_elem:
+                    article['image_url'] = None
             
-            category_elem = hero_section.find('div', class_='jeg_post_category')
-            if category_elem and category_elem.find('a'):
-                article['category'] = category_elem.find('a').get_text(strip=True)
             
             meta_date = hero_section.find('div', class_='jeg_meta_date')
             if meta_date and meta_date.find('a'):
-                article['date_posted'] = meta_date.find('a').get_text(strip=True)
+                article['published_at'] = meta_date.find('a').get_text(strip=True)
             
             if article.get('title'):
-                article['is_featured'] = True
-                article['section'] = 'Hero'
                 parsed_data['articles'].append(article)
         logging.info("Parsing Premium Times Hero Article Section Completed")
         
@@ -75,19 +73,19 @@ def parse_premuimtimes_news(html_content):
                 title_elem = item.find('h3', class_='jeg_post_title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('div', class_='thumbnail-container')
                 if img_elem and img_elem.find('img'):
                     article['image_url'] = img_elem.find('img').get('data-src') or img_elem.find('img').get('src', '')
-                
+
+                if not img_elem:
+                    article['image_url'] = None
                 meta_date = item.find('div', class_='jeg_meta_date')
                 if meta_date and meta_date.find('a'):
-                    article['date_posted'] = meta_date.find('a').get_text(strip=True)
+                    article['published_at'] = meta_date.find('a').get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = section_name
-                    article['section'] = 'Headlines'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Premium Times Top News Section Completed")
         
@@ -107,22 +105,16 @@ def parse_premuimtimes_news(html_content):
                 title_elem = item.find('h3', class_='jeg_post_title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 img_elem = item.find('div', class_='thumbnail-container')
                 if img_elem and img_elem.find('img'):
                     article['image_url'] = img_elem.find('img').get('data-src') or img_elem.find('img').get('src', '')
-                
+                if not img_elem:
+                    article['image_url'] = None
                 meta_date = item.find('div', class_='jeg_meta_date')
                 if meta_date and meta_date.find('a'):
-                    article['date_posted'] = meta_date.find('a').get_text(strip=True)
-                
-                category_elem = item.find('div', class_='jeg_post_category')
-                if category_elem and category_elem.find('a'):
-                    article['category'] = category_elem.find('a').get_text(strip=True)
-                
+                    article['published_at'] = meta_date.find('a').get_text(strip=True)
                 if article.get('title'):
-                    article['section'] = section_name
                     parsed_data['articles'].append(article)
         logging.info("Parsing Premium Times More News Section Completed")
         
@@ -142,30 +134,18 @@ def parse_premuimtimes_news(html_content):
                 title_elem = item.find('h3', class_='jeg_post_title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
+                    article['news_url'] = title_elem.find('a').get('href', '') 
                 img_elem = item.find('div', class_='thumbnail-container')
                 if img_elem and img_elem.find('img'):
                     article['image_url'] = img_elem.find('img').get('data-src') or img_elem.find('img').get('src', '')
-                
-                meta_author = item.find('div', class_='jeg_meta_author')
-                if meta_author and meta_author.find('a'):
-                    article['author'] = meta_author.find('a').get_text(strip=True)
+                if not img_elem:
+                    article['image_url'] = None
                 
                 meta_date = item.find('div', class_='jeg_meta_date')
                 if meta_date and meta_date.find('a'):
-                    article['date_posted'] = meta_date.find('a').get_text(strip=True)
-                
-                category_elem = item.find('div', class_='jeg_post_category')
-                if category_elem and category_elem.find('a'):
-                    article['category'] = category_elem.find('a').get_text(strip=True)
-                
-                excerpt_elem = item.find('p', class_='post-excerpt')
-                if excerpt_elem:
-                    article['excerpt'] = excerpt_elem.get_text(strip=True)
+                    article['published_at'] = meta_date.find('a').get_text(strip=True)
                 
                 if article.get('title'):
-                    article['section'] = section_name
                     parsed_data['articles'].append(article)
         logging.info("Parsing Premium Times Special Reports Section Completed")
         
@@ -180,15 +160,14 @@ def parse_premuimtimes_news(html_content):
                 title_elem = item.find('h3', class_='jeg_post_title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-src') or img_elem.get('src', '')
-                
+                if not img_elem:
+                    article['image_url'] = None
                 if article.get('title'):
-                    article['category'] = 'Investigation/Special Reports'
-                    article['section'] = 'Newsfeed Carousel'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Premium Times Newsfeed Carousel Completed")
         
@@ -211,19 +190,18 @@ def parse_premuimtimes_news(html_content):
                 title_elem = item.find('h3', class_='jeg_post_title')
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('div', class_='thumbnail-container')
                 if img_elem and img_elem.find('img'):
                     article['image_url'] = img_elem.find('img').get('data-src') or img_elem.find('img').get('src', '')
-                
+                if not img_elem:
+                    article['image_url'] = None
                 meta_date = item.find('div', class_='jeg_meta_date')
                 if meta_date and meta_date.find('a'):
-                    article['date_posted'] = meta_date.find('a').get_text(strip=True)
+                    article['published_at'] = meta_date.find('a').get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = 'Promoted Content'
-                    article['section'] = 'Promoted'
                     parsed_data['articles'].append(article)
         logging.info("Parsing Premium Times Promoted Content Section Completed")
         
@@ -247,3 +225,4 @@ def parse_premuimtimes_news(html_content):
     except Exception as e:
         logging.error(f"An Error Occurred When Parsing Premium Times Data: {e}")
         return None
+

@@ -40,11 +40,7 @@ def parse_channel_news(html_content):
             title_elem = lead_article.find('h3', class_='post-title')
             if title_elem and title_elem.find('a'):
                 article['title'] = title_elem.find('a').get_text(strip=True)
-                article['url'] = title_elem.find('a').get('href', '')
-            
-            excerpt_elem = lead_article.find('div', class_='post-excerpt')
-            if excerpt_elem and excerpt_elem.find('p'):
-                article['excerpt'] = excerpt_elem.find('p').get_text(strip=True)
+                article['news_url'] = title_elem.find('a').get('href', '')
             
             # Get featured image
             main_thumbnail = soup.find('div', class_='main__article-thumbnail')
@@ -52,10 +48,8 @@ def parse_channel_news(html_content):
                 img = main_thumbnail.find('img')
                 if img:
                     article['image_url'] = img.get('data-lazy-src') or img.get('src', '')
-            
-            if article.get('title'):
-                article['category'] = 'Top Stories'
-                article['is_featured'] = True
+                if not img:
+                    article['image_url'] = None
                 parsed_data['articles'].append(article)
         
         logging.info("Parsing Channels TV Featured Article Section Completed")
@@ -74,34 +68,19 @@ def parse_channel_news(html_content):
                 title_elem = item.find('h3', class_=['post-title', 'sumry-title'])
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                # Extract category
-                category_elem = item.find('div', class_='post-category')
-                if category_elem and category_elem.find('a'):
-                    article['category'] = category_elem.find('a').get_text(strip=True)
-                else:
-                    article['category'] = 'Top Stories'
-                
-                # Extract excerpt
-                excerpt_elem = item.find('div', class_='post-excerpt')
-                if excerpt_elem and excerpt_elem.find('p'):
-                    article['excerpt'] = excerpt_elem.find('p').get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 # Extract image
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
-                
-                # Extract author
-                author_elem = item.find('span', class_='post-author')
-                if author_elem and author_elem.find('a'):
-                    article['author'] = author_elem.find('a').get_text(strip=True)
-                
+                if not img_elem:
+                    article['image_url'] = None
+               
                 # Extract timestamp
                 time_elem = item.find('div', class_='post_time')
                 if time_elem and time_elem.find('span'):
-                    article['time_posted'] = time_elem.find('span').get_text(strip=True)
+                    article['published_at'] = time_elem.find('span').get_text(strip=True)
                 
                 if article.get('title'):
                     parsed_data['articles'].append(article)
@@ -121,18 +100,16 @@ def parse_channel_news(html_content):
                 title_elem = item.find('h3', class_=['post-title', 'sumry-title'])
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
-                excerpt_elem = item.find('div', class_='post-excerpt')
-                if excerpt_elem and excerpt_elem.find('p'):
-                    article['excerpt'] = excerpt_elem.find('p').get_text(strip=True)
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 if article.get('title'):
-                    article['category'] = section_name
                     parsed_data['articles'].append(article)
         
         logging.info("Parsing Channels TV AFCON 2025 Section Completed")
@@ -147,22 +124,16 @@ def parse_channel_news(html_content):
                 title_elem = item.find('h3', class_=['post-title', 'sumry-title'])
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
-                excerpt_elem = item.find('div', class_='post-excerpt')
-                if excerpt_elem and excerpt_elem.find('p'):
-                    article['excerpt'] = excerpt_elem.find('p').get_text(strip=True)
-                
+               
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
-                
-                author_elem = item.find('span', class_='post-author')
-                if author_elem and author_elem.find('a'):
-                    article['author'] = author_elem.find('a').get_text(strip=True)
-                
+                if not img_elem:
+                    article['image_url'] = None
+                    
                 if article.get('title'):
-                    article['category'] = 'More Stories'
                     parsed_data['articles'].append(article)
         
         logging.info("Parsing Channels TV More Stories Section Completed")
@@ -177,18 +148,19 @@ def parse_channel_news(html_content):
                 title_elem = item.find('h3', class_=['post-title', 'sumry-title'])
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
+                if not img_elem:
+                    article['image_url'] = None
                 
                 time_elem = item.find('div', class_='post_time')
                 if time_elem and time_elem.find('span'):
-                    article['time_posted'] = time_elem.find('span').get_text(strip=True)
+                    article['published_at'] = time_elem.find('span').get_text(strip=True)
                 
                 if article.get('title'):
-                    article['category'] = 'Latest Stories'
                     parsed_data['articles'].append(article)
         
         logging.info("Parsing Channels TV Latest Stories Section Completed")
@@ -203,22 +175,15 @@ def parse_channel_news(html_content):
                 title_elem = item.find('h3', class_=['post-title', 'sumry-title'])
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                excerpt_elem = item.find('div', class_='post-excerpt')
-                if excerpt_elem and excerpt_elem.find('p'):
-                    article['excerpt'] = excerpt_elem.find('p').get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
-                
-                author_elem = item.find('span', class_='post-author')
-                if author_elem and author_elem.find('a'):
-                    article['author'] = author_elem.find('a').get_text(strip=True)
+                if not img_elem:
+                    article['image_url'] = None
                 
                 if article.get('title'):
-                    article['category'] = 'Sports'
                     parsed_data['articles'].append(article)
         
         logging.info("Parsing Channels TV Sports Section Completed")
@@ -233,23 +198,15 @@ def parse_channel_news(html_content):
                 title_elem = item.find('h3', class_=['post-title', 'sumry-title'])
                 if title_elem and title_elem.find('a'):
                     article['title'] = title_elem.find('a').get_text(strip=True)
-                    article['url'] = title_elem.find('a').get('href', '')
-                
-                excerpt_elem = item.find('div', class_='post-excerpt')
-                if excerpt_elem and excerpt_elem.find('p'):
-                    article['excerpt'] = excerpt_elem.find('p').get_text(strip=True)
+                    article['news_url'] = title_elem.find('a').get('href', '')
                 
                 img_elem = item.find('img')
                 if img_elem:
                     article['image_url'] = img_elem.get('data-lazy-src') or img_elem.get('src', '')
-                
-                category_elem = item.find('div', class_='post-category')
-                category = 'Politics'
-                if category_elem and category_elem.find('a'):
-                    category = category_elem.find('a').get_text(strip=True)
+                if not img_elem:
+                    article['image_url'] = None
                 
                 if article.get('title'):
-                    article['category'] = category
                     parsed_data['articles'].append(article)
         
         logging.info("Parsing Channels TV Politics Section Completed")
@@ -275,3 +232,5 @@ def parse_channel_news(html_content):
     except Exception as e:
         logging.error(f"An Error Occurred When Parsing Channels TV Data: {e}")
         return None
+
+
