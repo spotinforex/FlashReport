@@ -108,7 +108,7 @@ async def scrape_recent_messages():
         await client.disconnect()
 
         # Insert all scraped articles
-        database.insert('parsed_articles', parsed_articles)
+        database.insert('parsed_articles', parsed_articles,conflict_column = 'hash')
         end = time.time()
         logging.info(f" Telegram Messages Retrived Successfully. Time Taken: {end-start:.2f} seconds")
     except Exception as e:
