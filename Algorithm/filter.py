@@ -144,7 +144,6 @@ def filter_pipeline():
             instructions = w.read()
         prompt = f"{instructions} {results}"
         response = call_gemini(prompt)
-        logging.info(f"Filter Gemini Response: {response}")
         logging.info("Retrieved Gemini Response, Inserting to Database")
         status = gemini_results_to_signals(response)
         return status
