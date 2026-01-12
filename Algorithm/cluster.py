@@ -117,7 +117,7 @@ def assign_cluster(data):
         FROM events
         WHERE
             event_type = %s
-            AND location = %s
+            AND state = %s
             AND last_updated >= %s
             AND status != 'resolved'
         ORDER BY last_updated DESC
@@ -128,7 +128,7 @@ def assign_cluster(data):
 
         match = db.fetch_one(query, (
             event_candidate["event_type"],
-            event_candidate["location"],
+            event_candidate["state"],
             cutoff_time
         ))
         
@@ -178,6 +178,7 @@ def prepare_clusters_for_gemini():
                 e.event_type,
                 e.title,
                 e.location,
+                e.state,
                 e.first_detected,
                 e.last_updated,
                 e.severity,

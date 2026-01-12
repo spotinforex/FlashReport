@@ -12,6 +12,68 @@ from scrapper.database import Database
 from pathlib import Path
 from datetime import datetime
 
+STATE_KEYWORDS = {
+    "Abia": ["abia", "abiastate", "abia state", "umuahia", "aba", "aba city"],
+    "Adamawa": ["adamawa", "adamawastate", "adamawa state", "yola", "jimeta"],
+    "Akwa Ibom": ["akwa ibom", "akwa-ibom", "akwaibom", "akwa ibom state", "akwaibomstate", "uyo"],
+    "Anambra": ["anambra", "anambrastate", "anambra state", "awka", "onitsha", "nnewi"],
+    "Bauchi": ["bauchi", "bauchistate", "bauchi state", "azare"],
+    "Bayelsa": ["bayelsa", "bayelsastate", "bayelsa state", "yenagoa"],
+    "Benue": ["benue", "benuestate", "benue state", "makurdi", "gboko", "otukpo"],
+    "Borno": ["borno", "bornostate", "borno state", "maiduguri", "bama"],
+    "Cross River": ["cross river", "cross-river", "crossriver", "cross river state", "crossriverstate", "calabar", "ogoja"],
+    "Delta": ["delta", "deltastate", "delta state", "asaba", "warri", "sapele", "ughelli"],
+    "Ebonyi": ["ebonyi", "ebonyistate", "ebonyi state", "abakaliki"],
+    "Edo": ["edo", "edostate", "edo state", "benin city", "benin-city", "benin", "auchi"],
+    "Ekiti": ["ekiti", "ekitistate", "ekiti state", "ado ekiti", "ado-ekiti", "ado"],
+    "Enugu": ["enugu", "enugustate", "enugu state", "nsukka", "enugu-ezike", "enugu city"],
+    "FCT": ["fct", "abuja", "fcta", "fct abuja", "abujafct", "gwagwalada", "kuje", "bwari", "federal capital territory"],
+    "Gombe": ["gombe", "gombestate", "gombe state", "deba", "kaltungo"],
+    "Imo": ["imo", "imostate", "imo state", "owerri", "orlu"],
+    "Jigawa": ["jigawa", "jigawastate", "jigawa state", "dutse", "hadejia", "gumel"],
+    "Kaduna": ["kaduna", "kadunastate", "kaduna state", "zaria", "kafanchan", "kaduna city"],
+    "Kano": ["kano", "kanostate", "kano state", "kano city"],
+    "Katsina": ["katsina", "katsinastate", "katsina state", "daura", "funtua"],
+    "Kebbi": ["kebbi", "kebbistate", "kebbi state", "birnin kebbi", "argungu"],
+    "Kogi": ["kogi", "kogistate", "kogi state", "lokoja", "okene", "kabba"],
+    "Kwara": ["kwara", "kwarastate", "kwara state", "ilorin", "offa"],
+    "Lagos": ["lagos", "lagosstate", "lagos state", "ikeja", "lekki", "ikorodu", "epe", "badagry", "lagos island", "lagos mainland"],
+    "Nasarawa": ["nasarawa", "nasarawastate", "nasarawa state", "lafia", "keffi", "akwanga"],
+    "Niger": ["niger state", "nigerstate", "niger", "minna", "bida", "suleja"],
+    "Ogun": ["ogun", "ogunstate", "ogun state", "abeokuta", "ijebu ode", "ijebu-ode", "sagamu"],
+    "Ondo": ["ondo", "ondostate", "ondo state", "akure", "ondo city"],
+    "Osun": ["osun", "osunstate", "osun state", "osogbo", "ile-ife", "ilesha", "ilesa"],
+    "Oyo": ["oyo", "oyostate", "oyo state", "ibadan", "ogbomoso", "oyo town"],
+    "Plateau": ["plateau", "plateaustate", "plateau state", "jos", "bukuru", "jos city"],
+    "Rivers": ["rivers", "riversstate", "rivers state", "port harcourt", "portharcourt", "ph", "phc"],
+    "Sokoto": ["sokoto", "sokotostate", "sokoto state", "wurno"],
+    "Taraba": ["taraba", "tarabastate", "taraba state", "jalingo", "wukari"],
+    "Yobe": ["yobe", "yobestate", "yobe state", "damaturu", "potiskum"],
+    "Zamfara": ["zamfara", "zamfarastate", "zamfara state", "gusau", "kaura namoda"]
+}
+
+def extract_state_from_location(location_string):
+    """
+    Extract Nigerian state from a location string using keyword matching.
+    """
+    if not location_string:
+        logging.warning("No Location to be filtered is provided")
+        return None
+    
+    # Remove spaces and convert to lowercase for compound matching
+    location_lower = location_string.lower()
+    location_nospace = location_string.replace(" ", "").lower()
+    
+    # Check each state's keywords
+    for state, keywords in STATE_KEYWORDS.items():
+        for keyword in keywords:
+            # Check both with and without spaces
+            if keyword in location_lower or keyword in location_nospace:
+                return state
+    
+    return None
+
+
 def normalize_text(text):
     """
     Normalizes messages:
@@ -89,6 +151,8 @@ def gemini_results_to_signals(gemini_response: dict) -> list[dict]:
                 if part
             ) or None
 
+            state = extract_state_from_location(extracted_location)
+
             signal = {
                 "article_id": item["id"],                  
                 "signal_type": item.get("event_type"),
@@ -98,7 +162,7 @@ def gemini_results_to_signals(gemini_response: dict) -> list[dict]:
                 "severity": item.get("severity"),
                 "is_ongoing": item.get("is_ongoing"),
                 "summary": item.get("summary"),
-                "state": item.get("region")
+                "state": state
             }
 
             signals.append(signal)

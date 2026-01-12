@@ -10,7 +10,7 @@ from scrapper.database import Database
 
 db = Database()
 
-def get_all_events(limit=50):
+def get_all_events(limit=100):
     try:
         query = """
         SELECT
@@ -18,6 +18,7 @@ def get_all_events(limit=50):
             e.event_type,
             e.title AS event_title,
             e.location,
+            e.state,
             e.severity,
             e.confidence,
             e.status,
@@ -60,6 +61,7 @@ def get_all_events(limit=50):
                     "event_type": row["event_type"],
                     "title": row["event_title"],
                     "location": row["location"],
+                    "state":row["state"],
                     "severity": row["severity"],
                     "confidence": row["confidence"],
                     "status": row["status"],
@@ -101,6 +103,7 @@ def search_events(event_type, location=None, limit=15):
             e.event_type,
             e.title AS event_title,
             e.location,
+            e.state,
             e.severity,
             e.confidence,
             e.status,
@@ -149,6 +152,7 @@ def search_events(event_type, location=None, limit=15):
                     "event_type": row["event_type"],
                     "title": row["event_title"],
                     "location": row["location"],
+                    "state": row["state"],
                     "severity": row["severity"],
                     "confidence": row["confidence"],
                     "status": row["status"],
