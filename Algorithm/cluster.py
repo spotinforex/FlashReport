@@ -77,8 +77,12 @@ def update_event(db, event_id, event):
     UPDATE events
     SET
         last_updated = %s,
-        severity = %s,
-        confidence = %s,
+        severity = CASE
+            WHEN %s = 'high' AND severity <> 'high' THEN 'high'
+            WHEN %s = 'medium' AND severity = 'low' THEN 'medium'
+            ELSE severity
+        END,
+        confidence = GREATEST(confidence, %s),
         title = CASE
             WHEN %s > confidence THEN %s
             ELSE title
@@ -88,18 +92,29 @@ def update_event(db, event_id, event):
     """
 
     db.execute(query, (
-        event["timestamp"],
-        event["severity"],
-        event["confidence"],
-        event["confidence"],
-        event["summary"],
-        event_id
+    event["timestamp"],           # last_updated
+    event["severity"],            # check if new severity is 'high'
+    'medium',                      # escalate low -> medium if needed
+    event["confidence"],          # for GREATEST comparison
+    event["confidence"],          # compare with current confidence for title
+    event["summary"],             # new title if confidence is higher
+    event_id                      # WHERE id
     ))
 
 
+def validate_event_candidate(event_candidate):
+    """Validate required fields in event candidate"""
+    required_fields = ['timestamp', 'event_type', 'state', 'article_id']
+    missing = [field for field in required_fields if not event_candidate.get(field)]
+    
+    if missing:
+        raise ValueError(f"Missing required fields: {missing}")
+    
+    return True
+
 TIME_WINDOW_DAYS = 30
 
-def assign_cluster(data):
+def assign_cluster(db, data):
     ''' Creating and Assigning Clusters to Signals '''
     try: 
         event_candidate = {
@@ -112,15 +127,23 @@ def assign_cluster(data):
                         'summary': data.get('summary'),
                         'state': data.get('state')
                     }
+        # Validate required fields
+        try:
+            validate_event_candidate(event_candidate)
+        except ValueError as e:
+            logging.error(f"Invalid event candidate: {e}")
+            return None
+            
         query = """
         SELECT id, last_updated
         FROM events
         WHERE
             event_type = %s
             AND state = %s
+            AND location = %s
             AND last_updated >= %s
-            AND status != 'resolved'
-        ORDER BY last_updated DESC
+        ORDER BY
+            last_updated DESC
         LIMIT 1;
         """
 
@@ -129,34 +152,35 @@ def assign_cluster(data):
         match = db.fetch_one(query, (
             event_candidate["event_type"],
             event_candidate["state"],
+            event_candidate["location"],
             cutoff_time
         ))
         
         if match:
             event_id = match.get('id')
+            with db.transaction():
+                link_article_to_event(
+                    db,
+                    event_id,
+                    event_candidate.get("article_id"),
+                    event_candidate.get("confidence")
+                )
+
+                update_event(db,event_id, event_candidate)
+            return event_id
+
+        with db.transaction():
+            event_id = create_event(db, event_candidate)
+            if event_id is None:
+                logging.error(f"Could not create event for article {event_candidate.get('article_id')}")
+                return None
 
             link_article_to_event(
                 db,
                 event_id,
-                event_candidate.get("article_id"),
-                event_candidate.get("confidence")
+                event_candidate["article_id"],
+                event_candidate["confidence"]
             )
-
-            update_event(db,event_id, event_candidate)
-            return event_id
-
-        
-        event_id = create_event(db, event_candidate)
-        if event_id is None:
-            logging.error(f"Could not create event for article {event_candidate.get('article_id')}")
-            return None
-
-        link_article_to_event(
-            db,
-            event_id,
-            event_candidate["article_id"],
-            event_candidate["confidence"]
-        )
 
         return event_id
     except Exception as e:
@@ -314,41 +338,72 @@ def safe_parse_gemini_response(response):
 
     return None
 
-
 def clustering_pipeline():
-    """ Pipeline For Handling Clustering Process """
+    """Pipeline for handling clustering process"""
     try:
         start = time.time()
         cutoff_time = datetime.utcnow() - timedelta(hours=4)
-        query = "SELECT * FROM signals WHERE created_at >= %s"
+        
+        # Fetch signals
+        query = "SELECT * FROM signals WHERE created_at >= %s ORDER BY created_at ASC"
         data_list = db.fetch_all(query, (cutoff_time,))
-        logging.info("Assigning Clusters In Progress")
+        
+        logging.info(f"Processing {len(data_list)} signals")
+        
+        # Track metrics
+        metrics = {
+            'total_signals': len(data_list),
+            'new_events': 0,
+            'merged_events': 0,
+            'failed': 0
+        }
+        
+        # Assign clusters
+        logging.info("Assigning clusters in progress")
         for data in data_list:
-            assign_cluster(data)
-
-        logging.info("Preparing Cluster For Gemini")
-        value = prepare_clusters_for_gemini()
-
+            event_id = assign_cluster(db, data)
+            
+            if event_id:
+                # Check if it's new or merged
+                query = "SELECT COUNT(*) as count FROM event_articles WHERE event_id = %s"
+                result = db.fetch_one(query, (event_id,))
+                
+                if result and result['count'] == 1:
+                    metrics['new_events'] += 1
+                else:
+                    metrics['merged_events'] += 1
+            else:
+                metrics['failed'] += 1
+        
+        logging.info(f"Clustering complete: {metrics}")
+        
+        # Continue with Gemini analysis...
+        logging.info("Preparing clusters for Gemini")
+        clusters = prepare_clusters_for_gemini()
+        
+        if not clusters:
+            logging.warning("No clusters to analyze")
+            return True
+        
         with open(Path.cwd() / "Algorithm/system_instructions/clustering_instructions.txt") as f:
             instructions = f.read()
-
-        prompt = f"{instructions} REPORT: {json.dumps(value, default=str)}"
-
-        logging.info("Calling Gemini")
-        response = call_gemini(prompt)  # should return dict
-
-        logging.info("Verifying Gemini Response")
+        
+        prompt = f"{instructions} REPORT: {json.dumps(clusters, default=str)}"
+        
+        logging.info("Calling Gemini for analysis")
+        response = call_gemini(prompt)
+        
+        logging.info("Verifying Gemini response")
         response = safe_parse_gemini_response(response)
-        if response is None:
-            return None
-        logging.info("Response Retrieved, Saving Response")
-        save_gemini_cluster_analysis(db, response)
-
+        
+        if response:
+            logging.info("Saving Gemini analysis")
+            save_gemini_cluster_analysis(db, response)
+        
         end = time.time()
-        logging.info(f"Response Saved. Total Time Taken: {end - start:.2f} seconds")
+        logging.info(f"Pipeline complete. Time: {end - start:.2f}s. Metrics: {metrics}")
         return True
-
+        
     except Exception as e:
-        import traceback
-        logging.error(f"Failed To Cluster Headlines: {e}\n{traceback.format_exc()}")
-
+        logging.error(f"Pipeline failed: {e}", exc_info=True)
+        return False

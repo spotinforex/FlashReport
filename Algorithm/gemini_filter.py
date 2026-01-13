@@ -23,29 +23,39 @@ GEMINI_URL = (
 def call_gemini(prompt: str) -> str:
     payload = {
         "contents": [
-            {
-                "parts": [
-                    {"text": prompt}
-                ]
-            }
+            {"parts": [{"text": prompt}]}
         ]
     }
 
-    headers = {
-        "Content-Type": "application/json"
-    }
+    headers = {"Content-Type": "application/json"}
 
-    response = requests.post(
-        GEMINI_URL,
-        headers=headers,
-        data=json.dumps(payload),
-        timeout=180
-    )
-
-    response.raise_for_status()
+    try:
+        response = requests.post(GEMINI_URL, headers=headers, data=json.dumps(payload), timeout=180)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Failed to call Gemini API: {e}") from e
 
     data = response.json()
-    return data["candidates"][0]["content"]["parts"][0]["text"]
+
+    # Defensive parsing
+    candidates = data.get("candidates")
+    if not candidates or not isinstance(candidates, list):
+        raise ValueError("No candidates returned from Gemini")
+
+    content = candidates[0].get("content")
+    if not content or not isinstance(content, dict):
+        raise ValueError("No content in Gemini candidate")
+
+    parts = content.get("parts")
+    if not parts or not isinstance(parts, list):
+        raise ValueError("No parts in Gemini content")
+
+    text = parts[0].get("text")
+    if text is None:
+        raise ValueError("No text in Gemini part")
+
+    return text
+
 
 
 

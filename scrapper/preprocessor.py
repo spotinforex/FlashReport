@@ -92,6 +92,11 @@ def preprocessor(data: dict):
     """
     try:
         logging.info("Preprocessing Step Initialized")
+        
+        if data is None:
+            logging.warning("No data Provided for Preprocessing")
+            return None
+            
         scraped_at = parser.isoparse(data["scraped_at"])
         articles = data.get("articles", [])
 

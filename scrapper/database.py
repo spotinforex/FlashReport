@@ -1,8 +1,13 @@
-import logging, os, sys
+import logging
+import os
+import sys
+from contextlib import contextmanager
+from typing import Optional, List, Dict, Any
+
 import psycopg2
-from psycopg2.extras import execute_batch
+import psycopg2.pool
+from psycopg2.extras import execute_batch, RealDictCursor
 from dotenv import load_dotenv
-from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger("runner")
 logging.basicConfig(
@@ -13,81 +18,175 @@ logging.basicConfig(
 
 load_dotenv()
 
+
 class Database:
     """
-    Handles All Database Connections 
+    Thread-safe database connection handler with connection pooling
     """
-    def __init__(self):
-        try:
-            logging.info("Connecting To Database")
-            self.conn = psycopg2.connect(
-                host=os.getenv("DB_HOST"),
-                dbname=os.getenv("DB_NAME"),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASSWORD"),
-                port=int(os.getenv("DB_PORT", 5432)),
-                sslmode="require"
-            )
-            self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-            logging.info("Connected To Database")
-        except Exception as e:
-            logging.error(f"Failed To Connect to Database. Error: {e}")
-            self.conn = None
-            self.cursor = None
+    
+    _pool = None
+    _pool_lock = __import__('threading').Lock()
+    
+    # Whitelist of allowed tables for dynamic queries
+    ALLOWED_TABLES = {
+        'sources', 'parsed_articles', 'signals', 
+        'events', 'event_articles', 'analysis'
+    }
 
-    def fetch_one(self, query, params=None):
+    def __init__(self):
+        """Initialize database connection from pool"""
+        if Database._pool is None:
+            self._initialize_pool()
+        
+        self.conn = None
+        self._get_connection()
+
+    @classmethod
+    def _initialize_pool(cls):
+        """Create connection pool (singleton pattern)"""
+        with cls._pool_lock:
+            if cls._pool is None:
+                try:
+                    logging.info("Creating database connection pool")
+                    cls._pool = psycopg2.pool.ThreadedConnectionPool(
+                        minconn=2,
+                        maxconn=10,
+                        host=os.getenv("DB_HOST"),
+                        dbname=os.getenv("DB_NAME"),
+                        user=os.getenv("DB_USER"),
+                        password=os.getenv("DB_PASSWORD"),
+                        port=int(os.getenv("DB_PORT", 5432)),
+                        sslmode="require",
+                        connect_timeout=10
+                    )
+                    logging.info("Connection pool created successfully")
+                except Exception as e:
+                    logging.error(f"Failed to create connection pool: {e}")
+                    raise
+
+    def _get_connection(self):
+        """Get connection from pool"""
+        if not self.conn or self.conn.closed:
+            self.conn = Database._pool.getconn()
+            logging.debug("Retrieved connection from pool")
+
+    def _release_connection(self):
+        """Return connection to pool"""
+        if self.conn and not self.conn.closed:
+            Database._pool.putconn(self.conn)
+            self.conn = None
+            logging.debug("Released connection to pool")
+
+    @contextmanager
+    def transaction(self):
         """
-        Execute a query and return a single record
+        Context manager for database transactions
         """
         try:
-            self.cursor.execute(query, params or ())
-            return self.cursor.fetchone()
+            yield
+            self.conn.commit()
+            logging.debug("Transaction committed")
         except Exception as e:
-            logging.error(f"Error fetching one: {e}")
+            self.conn.rollback()
+            logging.error(f"Transaction failed, rolled back: {e}")
+            raise
+
+    def fetch_one(self, query: str, params: tuple = None) -> Optional[Dict]:
+        """
+        Execute query and return single record as dict
+        
+        Args:
+            query: SQL query with placeholders
+            params: Query parameters
+            
+        Returns:
+            Dictionary of results or None
+        """
+        try:
+            with self.conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(query, params or ())
+                result = cursor.fetchone()
+                return dict(result) if result else None
+        except Exception as e:
+            logging.error(f"Error in fetch_one: {e}", exc_info=True)
+            self.conn.rollback()
             return None
 
-    def fetch_all(self, query, params=None):
+    def fetch_all(self, query: str, params: tuple = None) -> List[Dict]:
         """
-        Execute a query and return all records
+        Execute query and return all records as list of dicts
+        
+        Args:
+            query: SQL query with placeholders
+            params: Query parameters
+            
+        Returns:
+            List of dictionaries
         """
         try:
-            self.cursor.execute(query, params or ())
-            return self.cursor.fetchall()
+            with self.conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(query, params or ())
+                results = cursor.fetchall()
+                return [dict(row) for row in results]
         except Exception as e:
-            logging.error(f"Error fetching all: {e}")
+            logging.error(f"Error in fetch_all: {e}", exc_info=True)
+            self.conn.rollback()
             return []
 
-    def execute(self, query, params=None, commit=True):
+    def execute(self, query: str, params: tuple = None, commit: bool = True) -> bool:
         """
-        Execute a query (INSERT, UPDATE, DELETE)
+        Execute query (INSERT, UPDATE, DELETE)
+        
+        Args:
+            query: SQL query
+            params: Query parameters
+            commit: Whether to commit immediately
+            
+        Returns:
+            True if successful, False otherwise
         """
         try:
-            self.cursor.execute(query, params or ())
-            if commit:
-                self.conn.commit()
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, params or ())
+                if commit:
+                    self.conn.commit()
             return True
         except Exception as e:
-            logging.error(f"Error executing query: {e}")
+            logging.error(f"Error executing query: {e}", exc_info=True)
             self.conn.rollback()
             return False
-            
-    def insert(self, table, data, conflict_column = None):
+
+    def insert(
+        self, 
+        table: str, 
+        data: Any, 
+        conflict_column: Optional[str] = None
+    ) -> bool:
         """
-        Insert one or many records into a table.
-        `data` can be:
-            - a single dictionary: {column: value}
-            - a list of dictionaries: [{...}, {...}]
+        Insert one or multiple records into table
+        
+        Args:
+            table: Table name
+            data: Single dict or list of dicts
+            conflict_column: Column for ON CONFLICT clause
+            
+        Returns:
+            True if successful
         """
         try:
+            # Validate table name
+            if table not in self.ALLOWED_TABLES:
+                raise ValueError(f"Table '{table}' not in allowed list")
+            
             # Normalize input
             if isinstance(data, dict):
                 data = [data]
 
             if not data:
-                logger.warning("No data provided for insert")
+                logging.warning("No data provided for insert")
                 return False
 
-            # Freeze column order from first row
+            # Get column order from first row
             columns_list = list(data[0].keys())
             columns = ", ".join(f'"{c}"' for c in columns_list)
             placeholders = ", ".join(["%s"] * len(columns_list))
@@ -102,68 +201,134 @@ class Database:
                 {conflict_clause}
             """
 
+            # Validate schema consistency
             values_list = []
-
             for i, row in enumerate(data, start=1):
-                # Enforce schema consistency
-                if row.keys() != data[0].keys():
+                if set(row.keys()) != set(data[0].keys()):
                     raise ValueError(
-                        f"Row {i} keys mismatch.\n"
-                        f"Expected: {data[0].keys()}\n"
-                        f"Got: {row.keys()}"
+                        f"Row {i} schema mismatch. "
+                        f"Expected: {set(data[0].keys())}, Got: {set(row.keys())}"
                     )
+                values_list.append(tuple(row[col] for col in columns_list))
 
-                values_list.append(
-                    tuple(row[col] for col in columns_list)
-                )
-
-            # Batch insert (fast & safe)
-            execute_batch(self.cursor, query, values_list, page_size=100)
+            # Batch insert
+            with self.conn.cursor() as cursor:
+                execute_batch(cursor, query, values_list, page_size=100)
+            
             self.conn.commit()
-
-            logger.info(f"Inserted {len(values_list)} row(s) into {table}")
+            logging.info(f"Inserted {len(values_list)} row(s) into {table}")
             return True
 
         except Exception as e:
             self.conn.rollback()
-            logger.error(f"Error inserting into {table}: {e}", exc_info=True)
+            logging.error(f"Error inserting into {table}: {e}", exc_info=True)
+            return False
+
+    def update(self, table: str, id: Any, timestamp: Any) -> bool:
+        """
+        Update last_scraped timestamp for a record
+        
+        Args:
+            table: Table name
+            id: Record ID
+            timestamp: New timestamp
+            
+        Returns:
+            True if successful
+        """
+        try:
+            # Validate table name
+            if table not in self.ALLOWED_TABLES:
+                raise ValueError(f"Table '{table}' not in allowed list")
+            
+            logging.info(f"Updating {table} scrape date for id={id}")
+            
+            query = f'UPDATE "{table}" SET last_scraped = %s WHERE id = %s'
+            
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, (timestamp, id))
+            
+            self.conn.commit()
+            logging.info("Update successful")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error updating {table}: {e}", exc_info=True)
+            self.conn.rollback()
+            return False
+
+    def execute_batch(self, query: str, data: List[tuple]) -> bool:
+        """
+        Execute batch operations efficiently
+        
+        Args:
+            query: SQL query with placeholders
+            data: List of tuples containing parameters
+            
+        Returns:
+            True if successful
+        """
+        try:
+            if not data:
+                logging.warning("No data provided for batch execution")
+                return False
+            
+            logging.info(f"Batch executing {len(data)} operations")
+            
+            with self.conn.cursor() as cursor:
+                execute_batch(cursor, query, data, page_size=100)
+            
+            self.conn.commit()
+            logging.info(f"Batch execution successful: {len(data)} row(s)")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Batch execution failed: {e}", exc_info=True)
+            self.conn.rollback()
+            return False
+
+    def is_connected(self) -> bool:
+        """Check if database connection is alive"""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            return True
+        except:
+            return False
+
+    def reconnect(self) -> bool:
+        """Reconnect to database"""
+        try:
+            logging.info("Attempting to reconnect")
+            self._release_connection()
+            self._get_connection()
+            
+            if self.is_connected():
+                logging.info("Reconnection successful")
+                return True
             return False
             
-    def update(self, table, id, timestamp):
-        """Updates Timestamp For Sources safely"""
-        try:
-            logging.info("Updating Source Table Scrape Date In Progress")
-
-            query = f"UPDATE {table} SET last_scraped = %s WHERE id = %s"
-            self.cursor.execute(query, (timestamp, id))
-
-            self.conn.commit()
-            logging.info("Updated Table Successfully")
-
         except Exception as e:
-            logging.error(f"An Error Occurred While Updating Table: {e}")
+            logging.error(f"Reconnection failed: {e}")
+            return False
 
-    def execute_batch(self, query, data):
-        try:
-            logging.info("Batch Insertion In Progress")
-            # Batch insert (fast & safe)
-            execute_batch(self.cursor, query, data, page_size=100)
-            self.conn.commit()
-
-            logger.info(f"Inserted {len(data)} row(s)")
-            return True
-        except Exception as e:
-            logging.error(f"An Error Occurred While Batch Inserting Table: {e}")
-        
     def close(self):
-        """
-        Close cursor and connection
-        """
-        if self.cursor:
-            self.cursor.close()
-        if self.conn:
-            self.conn.close()
+        """Release connection back to pool"""
+        self._release_connection()
         logging.info("Database connection closed")
 
-    
+    def __enter__(self):
+        """Context manager entry"""
+        return self
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - auto cleanup"""
+        self.close()
+
+    @classmethod
+    def close_all_connections(cls):
+        """Close all connections in pool (call on shutdown)"""
+        if cls._pool:
+            cls._pool.closeall()
+            cls._pool = None
+            logging.info("All database connections closed")

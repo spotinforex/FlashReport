@@ -390,7 +390,10 @@ def parse_guardian_news(html_content):
         seen_titles = set()
         unique_articles = []
         for article in parsed_data['articles']:
-            if article['title'] not in seen_titles:
+            title = article.get('title')
+            if not title:
+                continue
+            if title not in seen_titles:
                 seen_titles.add(article['title'])
                 unique_articles.append(article)
         
@@ -404,6 +407,7 @@ def parse_guardian_news(html_content):
         return parsed_data
         
     except Exception as e:
-        logging.error(f"An Error Occurred When Parsing Guardian Nigeria Data: {e}")
+        import traceback
+        logging.error(f"An Error Occurred When Parsing Guardian Nigeria Data: {e}\n{traceback.format_exc()}")
         return None
         
