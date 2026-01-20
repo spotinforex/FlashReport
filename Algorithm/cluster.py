@@ -11,8 +11,12 @@ from collections import defaultdict
 import json
 from Algorithm.gemini_filter import call_gemini
 from scrapper.database import Database
+from config import TIME_WINDOW_DAYS, CLUSTER_TIME
 from pathlib import Path
 import time
+from itertools import islice
+from config import batch_size
+from collections import defaultdict
 
 db = Database()
 
@@ -112,8 +116,6 @@ def validate_event_candidate(event_candidate):
     
     return True
 
-TIME_WINDOW_DAYS = 30
-
 def assign_cluster(db, data):
     ''' Creating and Assigning Clusters to Signals '''
     try: 
@@ -192,53 +194,77 @@ def convert_datetime(obj):
         return obj.isoformat()
     raise TypeError(f"Type {type(obj)} not serializable")
 
-
 def prepare_clusters_for_gemini():
-    ''' Preprocess Cluster For Gemini '''
-    query = ''' 
-        WITH recent_events AS (
-            SELECT
-                e.id AS event_id,
-                e.event_type,
-                e.title,
-                e.location,
-                e.state,
-                e.first_detected,
-                e.last_updated,
-                e.severity,
-                e.confidence,
-                e.status
-            FROM events e
-            WHERE e.last_updated >= NOW() - INTERVAL '4 HOURS'
-            AND e.status != 'resolved'
-        )
+    """
+    Prepare ONLY un-analyzed clusters for Gemini.
+    Idempotent and safe to run repeatedly.
+    """
+
+    query = '''
+    WITH unanalyzed_events AS (
         SELECT
-            re.event_id,
-            re.event_type,
-            re.title AS cluster_title,
-            re.location AS cluster_location,
-            re.first_detected,
-            re.last_updated,
-            re.severity AS cluster_severity,
-            re.confidence AS cluster_confidence,
-            re.status AS cluster_status,
-            a.article_id,
-            pa.title AS article_text,
-            a.relevance_score
-        FROM recent_events re
-        LEFT JOIN event_articles a
-            ON re.event_id = a.event_id
-        LEFT JOIN parsed_articles pa
-            ON a.article_id = pa.id
-        ORDER BY re.last_updated DESC, a.relevance_score DESC;
-        '''
+            e.id AS event_id,
+            e.event_type,
+            e.title,
+            e.location,
+            e.state,
+            e.first_detected,
+            e.last_updated,
+            e.severity,
+            e.confidence,
+            e.status
+        FROM events e
+        WHERE
+            e.status != 'resolved'
+            AND NOT EXISTS (
+                SELECT 1
+                FROM analysis a
+                WHERE a.event_id = e.id
+            )
+    )
+    SELECT
+        ue.event_id,
+        ue.event_type,
+        ue.title AS cluster_title,
+        ue.location AS cluster_location,
+        ue.first_detected,
+        ue.last_updated,
+        ue.severity AS cluster_severity,
+        ue.confidence AS cluster_confidence,
+        ue.status AS cluster_status,
+        ea.article_id,
+        pa.title AS article_text,
+        ea.relevance_score
+    FROM unanalyzed_events ue
+    LEFT JOIN event_articles ea
+        ON ue.event_id = ea.event_id
+    LEFT JOIN parsed_articles pa
+        ON ea.article_id = pa.id
+    ORDER BY
+        ue.last_updated ASC,
+        ea.relevance_score DESC;
+    '''
+
     records = db.fetch_all(query)
-    clusters = defaultdict(lambda: {"event_id": None, "event_type": None, "location": None, "articles": []})
+
+    if not records:
+        return []
+
+    clusters = defaultdict(lambda: {
+        "event_id": None,
+        "event_type": None,
+        "location": None,
+        "last_updated": None,
+        "severity": None,
+        "confidence": None,
+        "status": None,
+        "articles": []
+    })
 
     for row in records:
         event_id = row["event_id"]
-
         cluster = clusters[event_id]
+
         cluster["event_id"] = event_id
         cluster["event_type"] = row["event_type"]
         cluster["location"] = row["cluster_location"]
@@ -247,16 +273,15 @@ def prepare_clusters_for_gemini():
         cluster["confidence"] = row["cluster_confidence"]
         cluster["status"] = row["cluster_status"]
 
-        cluster["articles"].append({
-            "article_id": row["article_id"],
-            "text": row["article_text"],
-            "relevance": row["relevance_score"]
-        })
+        if row["article_id"]:
+            cluster["articles"].append({
+                "article_id": row["article_id"],
+                "text": row["article_text"],
+                "relevance": row["relevance_score"]
+            })
 
+    return list(clusters.values())
 
-    # convert defaultdict to normal list of dicts
-    parsed_values = list(clusters.values())
-    return parsed_values
 
 def save_gemini_cluster_analysis(db, cluster_results):
     """
@@ -338,36 +363,35 @@ def safe_parse_gemini_response(response):
 
     return None
 
+def chunked_iterable(iterable, size):
+    """ Breaks Clusters Into Batches"""
+    it = iter(iterable)
+    while True:
+        chunk = list(islice(it, size))
+        if not chunk:
+            break
+        yield chunk
+
 def clustering_pipeline():
     """Pipeline for handling clustering process"""
     try:
         start = time.time()
-        cutoff_time = datetime.utcnow() - timedelta(hours=4)
+        cutoff_time = datetime.utcnow() - timedelta(hours=CLUSTER_TIME)
         
         # Fetch signals
         query = "SELECT * FROM signals WHERE created_at >= %s ORDER BY created_at ASC"
         data_list = db.fetch_all(query, (cutoff_time,))
-        
         logging.info(f"Processing {len(data_list)} signals")
         
         # Track metrics
-        metrics = {
-            'total_signals': len(data_list),
-            'new_events': 0,
-            'merged_events': 0,
-            'failed': 0
-        }
+        metrics = {'total_signals': len(data_list), 'new_events': 0, 'merged_events': 0, 'failed': 0}
         
         # Assign clusters
         logging.info("Assigning clusters in progress")
         for data in data_list:
             event_id = assign_cluster(db, data)
-            
             if event_id:
-                # Check if it's new or merged
-                query = "SELECT COUNT(*) as count FROM event_articles WHERE event_id = %s"
-                result = db.fetch_one(query, (event_id,))
-                
+                result = db.fetch_one("SELECT COUNT(*) as count FROM event_articles WHERE event_id = %s", (event_id,))
                 if result and result['count'] == 1:
                     metrics['new_events'] += 1
                 else:
@@ -377,10 +401,9 @@ def clustering_pipeline():
         
         logging.info(f"Clustering complete: {metrics}")
         
-        # Continue with Gemini analysis...
+        # Prepare clusters
         logging.info("Preparing clusters for Gemini")
         clusters = prepare_clusters_for_gemini()
-        
         if not clusters:
             logging.warning("No clusters to analyze")
             return True
@@ -388,20 +411,16 @@ def clustering_pipeline():
         with open(Path.cwd() / "Algorithm/system_instructions/clustering_instructions.txt") as f:
             instructions = f.read()
         
-        prompt = f"{instructions} REPORT: {json.dumps(clusters, default=str)}"
-        
-        logging.info("Calling Gemini for analysis")
-        response = call_gemini(prompt)
-        
-        logging.info("Verifying Gemini response")
-        response = safe_parse_gemini_response(response)
-        
-        if response:
-            logging.info("Saving Gemini analysis")
-            save_gemini_cluster_analysis(db, response)
+        logging.info(f"Sending clusters to Gemini in batches of {batch_size}. Total Clusters: {len(clusters)}")
+        for batch in chunked_iterable(clusters, batch_size):
+            prompt = f"{instructions} REPORT: {json.dumps(batch, default=str)}"
+            response = call_gemini(prompt)
+            response = safe_parse_gemini_response(response)
+            if response:
+                save_gemini_cluster_analysis(db, response)
         
         end = time.time()
-        logging.info(f"Pipeline complete. Time: {end - start:.2f}s. Metrics: {metrics}")
+        logging.info(f"Pipeline complete. Time: {end - start:.2f}seconds.")
         return True
         
     except Exception as e:

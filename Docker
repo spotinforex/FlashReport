@@ -1,5 +1,0 @@
-RUN   pip install uv
-RUN   uv sync
-RUN   uv run playwright install chromium   # Install PlayWright dependencies
-RUN   uv run playwright install-deps    # Install PlayWright dependencies
-

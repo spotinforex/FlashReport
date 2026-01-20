@@ -54,25 +54,42 @@ STATE_KEYWORDS = {
 
 def extract_state_from_location(location_string):
     """
-    Extract Nigerian state from a location string using keyword matching.
+    Extract Nigerian state from a location string robustly.
+    
+    Returns:
+        state name (str) if found
+        None if only "Nigeria" is mentioned or no state matches
     """
     if not location_string:
-        logging.warning("No Location to be filtered is provided")
+        logging.warning("No location provided")
         return None
+
+    # Normalize: lowercase, remove extra spaces
+    location_lower = location_string.lower().strip()
     
-    # Remove spaces and convert to lowercase for compound matching
-    location_lower = location_string.lower()
-    location_nospace = location_string.replace(" ", "").lower()
-    
-    # Check each state's keywords
+    # Remove punctuation to handle "Lagos, Nigeria"
+    location_clean = re.sub(r'[^\w\s]', '', location_lower)
+
+    # Split into words for safe matching
+    words = location_clean.split()
+
+    # 1. Match any state keywords first
     for state, keywords in STATE_KEYWORDS.items():
         for keyword in keywords:
-            # Check both with and without spaces
-            if keyword in location_lower or keyword in location_nospace:
+            # Match whole words or phrases
+            keyword_lower = keyword.lower()
+            if re.search(rf'\b{re.escape(keyword_lower)}\b', location_clean):
                 return state
-    
-    return None
 
+    # 2. If only "nigeria" is mentioned or appears alone, return None
+    if "nigeria" in words:
+        # Check if any other word exists besides Nigeria
+        other_words = [w for w in words if w != "nigeria"]
+        if not other_words:
+            return None
+
+    # 3. No state found
+    return None
 
 def normalize_text(text):
     """
@@ -135,7 +152,6 @@ def gemini_results_to_signals(gemini_response: dict) -> list[dict]:
     try:
         signals = []
         now = datetime.utcnow()
-        gemini_response = json.loads(gemini_response)
         for item in gemini_response.get("results", []):
             if not item.get("is_real_incident"):
                 continue  # hard filter: no noise in signals table
@@ -176,6 +192,16 @@ def gemini_results_to_signals(gemini_response: dict) -> list[dict]:
         logging.error(f" An Error Occurred When Converting Gemini Response to Signals: {e}")
         return False
 
+def extract_json(text: str):
+    ''' Extract Json From Gemini Response '''
+    if not text:
+        logging.info("No Text Was Provided to be extracted")
+        return None
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if not match:
+        raise ValueError("No JSON object found in Gemini response")
+    return json.loads(match.group())
+
 def filter_pipeline():
     '''
     Pipeline For Filtering Messages 
@@ -208,8 +234,9 @@ def filter_pipeline():
             instructions = w.read()
         prompt = f"{instructions} {results}"
         response = call_gemini(prompt)
+        extracted_json = extract_json(response)
         logging.info("Retrieved Gemini Response, Inserting to Database")
-        status = gemini_results_to_signals(response)
+        status = gemini_results_to_signals(extracted_json)
         return status
     except Exception as e:
         import traceback

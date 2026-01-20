@@ -1,0 +1,3 @@
+TIME_WINDOW_DAYS = 30
+CLUSTER_TIME = 4
+batch_size = 15
