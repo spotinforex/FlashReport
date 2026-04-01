@@ -43,7 +43,7 @@ async def run_pipeline():
 @app.get("/events")
 async def fetch_events(request: Request):
     try:
-        await verify_request(request)
+        #await verify_request(request)
         events = get_all_events()
         return {"count": len(events), "events": events}
     except Exception as e:
@@ -55,7 +55,7 @@ async def search_event(
     keyword: str = Query(..., min_length=2, description="Event keyword"),
     location: str | None = Query(None, description="Optional location filter")
 ):
-    await verify_request(request)
+    #await verify_request(request)
     try:
         results = search_events(event_type=keyword, location=location)
         return {"keyword": keyword, "location": location, "count": len(results), "events": results}
